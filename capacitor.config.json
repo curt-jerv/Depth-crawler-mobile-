@@ -1,0 +1,9 @@
+{
+  "appId": "com.sol.depthcrawler",
+  "appName": "Depth Crawler",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false
+  }
+}
