@@ -1,6 +1,6 @@
 {
-  "appId": "com.sol.depthcrawler",
-  "appName": "Depth Crawler",
+  "appId": "com.sol.Grimfall",
+  "appName": "Grimfall",
   "webDir": "www",
   "bundledWebRuntime": false,
   "android": {
