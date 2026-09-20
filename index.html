@@ -1,0 +1,4180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Runefall</title>
+<style>
+  :root{
+    --void:#0b0710;
+    --stone:#1c1620;
+    --stone-light:#2a2130;
+    --ember:#e2703a;
+    --ember-dim:#8a4526;
+    --blood:#b4293f;
+    --arcane:#5b8cff;
+    --gold:#e8c44a;
+    --bone:#d8cdb8;
+    --bone-dim:#8a8078;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{
+    height:100%; margin:0; overflow:hidden; background:var(--void);
+    font-family:system-ui, -apple-system, sans-serif; color:var(--bone);
+    touch-action:none;
+  }
+  #wrap{position:fixed; inset:0; height:100%;}
+  canvas{display:block; width:100%; height:100%;}
+
+  .plaque{
+    background:linear-gradient(180deg,var(--stone-light),var(--stone));
+    border:1px solid #40323f;
+    border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  #hud{
+    position:absolute; top:calc(12px + env(safe-area-inset-top,0px)); left:12px; right:12px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none;
+    z-index:5;
+  }
+  #bars{ width:180px; }
+  .barrow{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .barlabel{ font-size:10px; letter-spacing:.04em; color:var(--bone-dim); width:14px; text-align:center; font-weight:700;}
+  .bar-track{
+    flex:1; height:14px; border-radius:4px; overflow:hidden;
+    padding:2px;
+  }
+  .bar-fill{ height:100%; border-radius:2px; transition:width .15s ease; }
+  .fill-hp{ background:linear-gradient(180deg,#e0455f,var(--blood)); }
+  .fill-mp{ background:linear-gradient(180deg,#7ea8ff,var(--arcane)); }
+  #barnum{ font-size:10px; color:var(--bone-dim); margin-top:-3px; letter-spacing:.02em;}
+
+  #stats{
+    text-align:right; padding:8px 12px; font-family:Georgia, 'Times New Roman', serif;
+  }
+  #stats .depth{ font-size:22px; font-weight:800; color:var(--ember); line-height:1; }
+  #stats .sub{ font-size:11px; color:var(--bone-dim); margin-top:2px; font-family:system-ui, -apple-system, sans-serif; letter-spacing:.02em;}
+
+  #xpwrap{
+    position:absolute; top:calc(78px + env(safe-area-inset-top,0px)); left:12px; width:180px; z-index:5; pointer-events:none;
+  }
+  .xp-track{ height:6px; border-radius:3px; overflow:hidden; }
+  .xp-fill{ height:100%; background:linear-gradient(90deg,#caa24a,#f0d078); transition:width .2s ease; }
+
+  #bagBtn{
+    position:absolute; top:calc(96px + env(safe-area-inset-top,0px)); left:12px; z-index:5;
+    width:44px; height:32px; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:11px;
+    letter-spacing:.03em; color:var(--bone); pointer-events:auto;
+  }
+  #bagBtn:active{ filter:brightness(1.3); }
+  #bagBadge{
+    position:absolute; top:-6px; right:-6px; width:14px; height:14px; border-radius:50%;
+    background:var(--gold); color:#2a1e08; font-size:9px; font-weight:800;
+    display:none; align-items:center; justify-content:center; font-family:system-ui,sans-serif;
+  }
+
+  #skillsBtn{
+    position:absolute; top:calc(132px + env(safe-area-inset-top,0px)); left:12px; z-index:5;
+    width:44px; height:32px; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:10px;
+    letter-spacing:.03em; color:var(--bone); pointer-events:auto;
+  }
+  #skillsBtn:active{ filter:brightness(1.3); }
+  #skillsBadge{
+    position:absolute; top:-6px; right:-6px; width:14px; height:14px; border-radius:50%;
+    background:var(--gold); color:#2a1e08; font-size:9px; font-weight:800;
+    display:none; align-items:center; justify-content:center; font-family:system-ui,sans-serif;
+  }
+
+  .interactBtn{
+    position:absolute; left:50%; bottom:calc(110px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+    z-index:6; padding:12px 26px; font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:13px;
+    letter-spacing:.04em; color:var(--gold); pointer-events:auto; text-transform:uppercase; white-space:nowrap;
+  }
+  .interactBtn:active{ filter:brightness(1.3); }
+
+  #portalChoice{
+    position:absolute; left:50%; bottom:calc(108px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+    z-index:6; display:none; flex-direction:column; gap:8px; align-items:center; pointer-events:none;
+  }
+  .portalBtn{
+    padding:12px 28px; font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:13px;
+    letter-spacing:.03em; pointer-events:auto; text-transform:uppercase; white-space:nowrap; text-align:center;
+  }
+  .portalBtn:active{ filter:brightness(1.3); }
+  .portalBtn.primary{ color:var(--gold); border-color:var(--gold); box-shadow:0 0 10px rgba(232,196,74,0.25); }
+  .portalBtn.secondary{ color:var(--bone-dim); font-size:12px; padding:9px 22px; }
+
+  #joyzone{ position:absolute; left:0; bottom:0; width:46%; height:52%; z-index:4; }
+  #joybase{
+    position:absolute; width:118px; height:118px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.06), rgba(0,0,0,.35));
+    border:2px solid rgba(216,205,184,.25);
+    display:none; z-index:4;
+  }
+  #joyknob{
+    position:absolute; width:52px; height:52px; border-radius:50%;
+    background:linear-gradient(180deg,var(--ember),var(--ember-dim));
+    border:2px solid rgba(255,255,255,.3);
+    box-shadow:0 2px 8px rgba(0,0,0,.5);
+    transform:translate(-50%,-50%);
+  }
+
+  #buttons{
+    position:absolute; right:calc(16px + env(safe-area-inset-right,0px)); bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    display:flex; flex-wrap:wrap-reverse; justify-content:flex-end; align-content:flex-end;
+    gap:10px; max-width:252px; z-index:5;
+  }
+  .actbtn{
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; font-family:Georgia, 'Times New Roman', serif; font-weight:700;
+    border:2px solid rgba(216,205,184,.3); position:relative; overflow:hidden;
+  }
+  .actbtn .cd{
+    position:absolute; inset:0; background:rgba(0,0,0,.55);
+    transform:translateY(100%); transition:none;
+  }
+  .actbtn span.lbl{ font-size:11px; letter-spacing:.03em; }
+  .actbtn span.key{ font-size:9px; color:var(--bone-dim); font-family:system-ui, -apple-system, sans-serif; margin-top:1px;}
+  #btnDodge{ width:64px; height:64px; background:radial-gradient(circle at 35% 30%,#3a4a5a,#1c2530); color:#a9c4de; }
+  #btnBlock{ width:74px; height:74px; background:radial-gradient(circle at 35% 30%,#7a8a9a,#3d4552); color:#eaf1ff; }
+  #btnBlock.holding{ filter:brightness(1.4); box-shadow:0 0 14px rgba(180,200,220,0.6); }
+  #btnAttack{ width:84px; height:84px; background:radial-gradient(circle at 35% 30%,#c85a3a,var(--blood)); color:#fff0e8; }
+  #btnThrow{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#7a95a8,#33505f); color:#dff0f8; display:none; }
+  #btnGuardian{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#e6c86a,#8a6a2a); color:#2a1e08; display:none; }
+  #btnWhirlwind{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#d97a4a,#7a3018); color:#fff0e8; display:none; }
+  #btnAssault{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#e8564a,#7a1616); color:#fff0e8; display:none; }
+  #btnStance{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#7a8a5a,#3a4a2a); color:#eef4e2; display:none; }
+  #btnRally{ width:60px; height:60px; background:radial-gradient(circle at 35% 30%,#e6c86a,#6a5218); color:#2a1e08; display:none; }
+  .actbtn:active{ filter:brightness(1.25); }
+
+  #msg{
+    position:absolute; top:38%; left:50%; transform:translate(-50%,-50%);
+    font-family:Georgia, 'Times New Roman', serif; font-size:15px; color:var(--ember); text-align:center;
+    letter-spacing:.06em; opacity:0; pointer-events:none; z-index:6;
+    text-shadow:0 2px 8px rgba(0,0,0,.8);
+  }
+
+  #overlay{
+    position:absolute; inset:0; z-index:10; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:radial-gradient(ellipse at center, rgba(20,8,14,.92), rgba(5,2,4,.98));
+    text-align:center; padding:24px;
+  }
+  #overlay h1{ font-family:Georgia, 'Times New Roman', serif; font-size:38px; color:var(--blood); margin:0 0 6px; letter-spacing:.03em;}
+  #overlay p{ margin:4px 0; color:var(--bone-dim); font-size:14px;}
+  #overlay .big{ color:var(--bone); font-size:16px; margin-top:10px;}
+  #overlay button{
+    margin-top:22px; padding:14px 34px; font-family:Georgia, 'Times New Roman', serif; font-size:16px; font-weight:700;
+    background:linear-gradient(180deg,var(--ember),var(--ember-dim)); color:#1c0f08;
+    border:none; border-radius:8px; box-shadow:0 3px 0 #6b3419;
+  }
+  #overlay button:active{ transform:translateY(2px); box-shadow:0 1px 0 #6b3419;}
+
+  #start{
+    position:absolute; inset:0; z-index:11; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; text-align:center; padding:24px;
+    background:radial-gradient(ellipse at 50% 30%, #241726, #0b0710 70%);
+  }
+  #start h1{ font-family:Georgia, 'Times New Roman', serif; font-size:15vw; max-font-size:48px; color:var(--ember); margin:0; letter-spacing:.04em; text-shadow:0 4px 20px rgba(226,112,58,.35);}
+  #start .rune{ font-size:34px; margin-bottom:8px; opacity:.8;}
+  #start p{ color:var(--bone-dim); max-width:320px; font-size:13px; line-height:1.6; margin:14px 0 4px;}
+  #start button{
+    margin-top:24px; padding:16px 42px; font-family:Georgia, 'Times New Roman', serif; font-size:17px; font-weight:700;
+    background:linear-gradient(180deg,var(--ember),var(--ember-dim)); color:#1c0f08;
+    border:none; border-radius:8px; box-shadow:0 3px 0 #6b3419;
+  }
+  #start button:active{ transform:translateY(2px); box-shadow:0 1px 0 #6b3419;}
+  #best{ font-size:12px; color:var(--bone-dim); margin-top:16px; }
+  #continueSub{ font-size:12px; color:var(--bone-dim); margin-top:4px; }
+  #continueBtn{ background:linear-gradient(180deg,#e8c44a,#8a6a2a) !important; box-shadow:0 3px 0 #4a3a12 !important; }
+  #continueBtn:active{ box-shadow:0 1px 0 #4a3a12 !important; }
+
+  #classSelect{
+    position:absolute; inset:0; z-index:11; display:none;
+    align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+    background:radial-gradient(ellipse at 50% 30%, #241726, #0b0710 70%);
+  }
+  #classSelect h1{ font-family:Georgia, 'Times New Roman', serif; font-size:26px; color:var(--ember); margin:0; letter-spacing:.03em;}
+  .classSub{ color:var(--bone-dim); font-size:13px; margin:8px 0 22px; }
+  .classGrid{ display:flex; flex-direction:column; gap:12px; width:100%; max-width:340px; }
+  .classCard{
+    display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:10px; text-align:left;
+    background:linear-gradient(180deg,var(--stone-light),var(--stone)); border:1px solid #40323f; color:var(--bone);
+    font-family:inherit; position:relative;
+  }
+  .classCard:not(.locked):active{ filter:brightness(1.25); transform:translateY(1px); }
+  .classIcon{ font-size:26px; flex-shrink:0; width:34px; text-align:center; }
+  .className{ font-family:Georgia, 'Times New Roman', serif; font-weight:700; font-size:16px; }
+  .classDesc{ font-size:11px; color:var(--bone-dim); margin-top:2px; line-height:1.4; }
+  .classCard.locked{ opacity:0.5; }
+  .classSoon{
+    position:absolute; top:10px; right:12px; font-size:9px; letter-spacing:.04em; font-weight:700;
+    color:var(--gold); text-transform:uppercase;
+  }
+
+  #charSelect{
+    position:absolute; inset:0; z-index:12; display:none;
+    align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:24px;
+    background:radial-gradient(ellipse at 50% 30%, #241726, #0b0710 70%);
+  }
+  #charSelect h1{ font-family:Georgia, 'Times New Roman', serif; font-size:26px; color:var(--ember); margin:0; letter-spacing:.03em;}
+  .charDelete{
+    position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
+    background:#241c2a; border:1px solid #40323f; color:var(--bone-dim); font-family:system-ui,sans-serif;
+  }
+  .charDelete:active{ filter:brightness(1.4); color:var(--blood); }
+
+  /* ---- modals: skill picker + inventory ---- */
+  .modalOverlay{
+    position:absolute; inset:0; z-index:20; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(5,2,4,.82); padding:20px; pointer-events:auto;
+  }
+  .modalCard{
+    width:100%; max-width:380px; max-height:88vh; overflow-y:auto; padding:20px;
+  }
+  .modalCard h2{ font-family:Georgia,'Times New Roman',serif; color:var(--ember); margin:0 0 4px; font-size:20px; text-align:center;}
+  .modalSub{ color:var(--bone-dim); font-size:12px; margin:0 0 16px; text-align:center;}
+  .skillChoices{ display:flex; flex-direction:column; gap:10px; }
+  .skillChoice{
+    display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:8px;
+    background:linear-gradient(180deg,#2a2130,#1c1620); border:1px solid #40323f; color:var(--bone);
+    text-align:left; width:100%; font-family:inherit;
+  }
+  .skillChoice:active{ filter:brightness(1.25); }
+  .schIcon{
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia,serif; font-weight:800; font-size:11px; flex-shrink:0;
+    background:radial-gradient(circle at 35% 30%,var(--ember),var(--ember-dim)); color:#1c0f08;
+  }
+  .schName{ font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:14px; }
+  .schDesc{ font-size:11px; color:var(--bone-dim); margin-top:2px;}
+  .modalFoot{ margin-top:14px; font-size:11px; color:var(--gold); text-align:center; min-height:14px;}
+
+  .treeCard{ max-width:420px; }
+  .treeCols{ display:flex; gap:8px; align-items:flex-start; }
+  .treeCol{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
+  .treeColTitle{
+    font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:12px; color:var(--ember);
+    text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .treeConnector{ width:2px; height:10px; background:#40323f; }
+  .treeColLocked{ opacity:0.5; }
+  .treeColLocked .treeColTitle{ color:var(--bone-dim); }
+  .treeNode{
+    width:100%; border-radius:8px; padding:8px 6px; text-align:center;
+    background:linear-gradient(180deg,#2a2130,#1c1620); border:1px solid #40323f;
+  }
+  .treeNode.locked{ opacity:0.45; }
+  .treeNode.available{ border-color:var(--gold); box-shadow:0 0 8px rgba(232,196,74,0.35); }
+  .treeNode.unlocked{ border-color:var(--ember); }
+  .treeNodeName{ font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:11px; color:var(--bone); }
+  .treeNodeDesc{ font-size:9px; color:var(--bone-dim); margin-top:3px; line-height:1.3; }
+  .treeNodeEffect{ font-size:9px; color:#8fc0d0; margin-top:4px; line-height:1.3; }
+  .treeNodeReq{ font-size:9px; color:var(--gold); margin-top:4px; text-transform:uppercase; letter-spacing:.02em; }
+  .treeNode.unlocked .treeNodeReq{ color:#8fd08a; }
+  .treeComingSoon{ font-size:10px; color:var(--bone-dim); padding:18px 4px; text-align:center; }
+
+  .invCard{ text-align:left; }
+  .invHeader{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .invHeader h2{ margin:0; text-align:left; }
+  .closeBtn{
+    width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:#2a2130; border:1px solid #40323f; color:var(--bone); font-size:13px; font-weight:700;
+    font-family:system-ui,sans-serif;
+  }
+  .closeBtn:active{ filter:brightness(1.3); }
+  .invStats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 4px; margin-bottom:14px; font-size:11px; color:var(--bone-dim); text-align:center; }
+  .invStats div{ background:#1c1620; border-radius:6px; padding:6px 2px; }
+  .invStats div b{ display:block; color:var(--bone); font-size:13px; font-family:Georgia,serif; margin-top:1px; }
+  .invSlots{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:4px;}
+  .slotBox{
+    aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg,#241c2a,#1a141f); border:1px solid #40323f; padding:4px; text-align:center;
+  }
+  .slotBox.filled{ border-color:var(--ember-dim); }
+  .slotBox .slotLabel{ font-size:8px; letter-spacing:.03em; color:var(--bone-dim); text-transform:uppercase;}
+  .slotBox .slotItem{ font-size:9px; font-weight:700; margin-top:3px; line-height:1.2; }
+  .invDivider{ font-size:11px; color:var(--bone-dim); letter-spacing:.05em; margin:16px 0 8px; text-transform:uppercase;}
+  .invBag{ display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;}
+  .bagItem{
+    display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px;
+    background:#1c1620; border:1px solid #332738; font-size:11px; gap:8px;
+  }
+  .bagItem .biName{ font-weight:700; }
+  .bagItem .biStats{ color:var(--bone-dim); font-size:10px; margin-top:2px;}
+  .bagItem .biTap{ font-size:9px; color:var(--bone-dim); flex-shrink:0; white-space:nowrap; }
+  .bagEmpty{ color:var(--bone-dim); font-size:11px; text-align:center; padding:14px 0;}
+  .bagItem.cantAfford{ opacity:0.45; }
+</style>
+</head>
+<body style="background:#0b0710;">
+<div id="errbox" style="display:none;position:fixed;inset:0;z-index:999;background:#1a0505;color:#ffb4b4;font:12px/1.5 monospace;padding:16px;overflow:auto;white-space:pre-wrap;"></div>
+<script>
+window.onerror = function(msg, src, line, col, err){
+  var b = document.getElementById('errbox');
+  b.style.display = 'block';
+  b.textContent = 'Error: ' + msg + '\nLine ' + line + ':' + col + '\n' + (err && err.stack ? err.stack : '');
+};
+</script>
+<div id="wrap">
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div>
+    <div id="bars">
+      <div class="barrow">
+        <div class="barlabel">H</div>
+        <div class="bar-track plaque"><div id="hpfill" class="bar-fill fill-hp" style="width:100%"></div></div>
+      </div>
+      <div class="barrow" style="display:none;">
+        <div class="barlabel">M</div>
+        <div class="bar-track plaque"><div id="mpfill" class="bar-fill fill-mp" style="width:100%"></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="stats" class="plaque">
+    <div class="depth" id="depthNum">1</div>
+    <div class="sub">DEPTH</div>
+    <div class="sub" style="margin-top:6px;"><span id="lvlText">Lv.1</span> &middot; <span id="goldNum">0</span>g</div>
+  </div>
+</div>
+
+<div id="xpwrap">
+  <div class="xp-track plaque"><div id="xpfill" class="xp-fill" style="width:0%"></div></div>
+</div>
+
+<div id="bagBtn" class="plaque">BAG<div id="bagBadge">!</div></div>
+<div id="skillsBtn" class="plaque">TREE<div id="skillsBadge">!</div></div>
+
+<div id="btnInteract" class="plaque interactBtn" style="display:none;"><span id="interactLbl">SHOP</span></div>
+
+<div id="portalChoice">
+  <div id="btnPortalNext" class="plaque portalBtn primary">Continue to Next Level</div>
+  <div id="btnPortalTown" class="plaque portalBtn secondary">Return to Town</div>
+</div>
+
+<div id="msg"></div>
+
+<div id="joyzone"></div>
+<div id="joybase"><div id="joyknob"></div></div>
+
+<div id="buttons">
+  <div id="btnAttack" class="actbtn"><span class="lbl">STRIKE</span><div class="cd"></div></div>
+  <div id="btnBlock" class="actbtn"><span class="lbl">BLOCK</span></div>
+  <div id="btnDodge" class="actbtn"><span class="lbl">DODGE</span><div class="cd"></div></div>
+  <div id="btnThrow" class="actbtn"><span class="lbl">THROW</span><div class="cd"></div></div>
+  <div id="btnGuardian" class="actbtn"><span class="lbl">GUARD</span><div class="cd"></div></div>
+  <div id="btnWhirlwind" class="actbtn"><span class="lbl">WHIRL</span><div class="cd"></div></div>
+  <div id="btnAssault" class="actbtn"><span class="lbl">RAGE</span><div class="cd"></div></div>
+  <div id="btnStance" class="actbtn"><span class="lbl">STANCE</span></div>
+  <div id="btnRally" class="actbtn"><span class="lbl">RALLY</span><div class="cd"></div></div>
+</div>
+
+<div id="skillTreeOverlay" class="modalOverlay">
+  <div class="modalCard plaque treeCard">
+    <div class="invHeader">
+      <h2>Skill Tree</h2>
+      <div id="treeClose" class="closeBtn">X</div>
+    </div>
+    <p class="modalSub" id="treePointsText">0 points available</p>
+    <div class="treeCols" id="treeCols"></div>
+  </div>
+</div>
+
+<div id="invOverlay" class="modalOverlay">
+  <div class="modalCard plaque invCard">
+    <div class="invHeader">
+      <h2>Inventory</h2>
+      <div id="invClose" class="closeBtn">X</div>
+    </div>
+    <div id="invStats" class="invStats"></div>
+    <div id="invSlots" class="invSlots"></div>
+    <div class="invDivider">Bag &mdash; tap to equip</div>
+    <div id="invBag" class="invBag"></div>
+  </div>
+</div>
+
+<div id="shopOverlay" class="modalOverlay">
+  <div class="modalCard plaque invCard">
+    <div class="invHeader">
+      <h2>Blacksmith</h2>
+      <div id="shopClose" class="closeBtn">X</div>
+    </div>
+    <p class="modalSub">Gold: <span id="shopGold">0g</span></p>
+    <div class="invDivider">For Sale &mdash; tap to buy</div>
+    <div id="shopStock" class="invBag"></div>
+    <div class="invDivider">Your Bag &mdash; tap to sell</div>
+    <div id="shopBag" class="invBag"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <h1>You Died</h1>
+  <p class="big">Reached Depth <span id="deadDepth">1</span></p>
+  <p>Level <span id="deadLevel">1</span> &middot; <span id="deadGold">0</span> gold collected</p>
+  <p id="deadBest"></p>
+  <p style="font-size:12px; color:var(--bone-dim); margin-top:6px;">You'll keep your level and gear, but your gold is gone.</p>
+  <button id="retryBtn">Return to Town</button>
+</div>
+
+<div id="start">
+  <div class="rune">&#9760;</div>
+  <h1 style="font-size:40px;">RUNEFALL</h1>
+  <p>An endless dungeon awaits. Roll through danger, strike down what stands in your way, and see how deep you can fall.</p>
+  <p id="best"></p>
+  <p id="continueSub" style="display:none;"></p>
+  <button id="continueBtn" style="display:none;">Continue</button>
+  <button id="startBtn">New Character</button>
+</div>
+
+<div id="charSelect">
+  <h1>Your Characters</h1>
+  <p class="classSub" id="charSelectSub">Choose a character to continue</p>
+  <div class="classGrid" id="charList"></div>
+  <button id="charBack" style="margin-top:18px; padding:12px 32px; font-family:Georgia, 'Times New Roman', serif; font-size:14px; font-weight:700; background:linear-gradient(180deg,#3a3040,#241c2a); color:var(--bone); border:1px solid #40323f; border-radius:8px;">Back</button>
+</div>
+
+<div id="classSelect">
+  <h1>Choose Your Class</h1>
+  <p class="classSub">Pick who descends into the dark</p>
+  <div class="classGrid">
+    <button id="classWarrior" class="classCard">
+      <div class="classIcon">&#9876;&#65039;</div>
+      <div class="className">Warrior</div>
+      <div class="classDesc">Melee bruiser. Sword &amp; shield or a two-handed greatsword.</div>
+    </button>
+    <button id="classRanger" class="classCard">
+      <div class="classIcon">&#127993;</div>
+      <div class="className">Ranger</div>
+      <div class="classDesc">Ranged skirmisher. Fights with a bow from a distance.</div>
+    </button>
+    <button id="classMystic" class="classCard locked">
+      <div class="classIcon">&#128302;</div>
+      <div class="className">Mystic</div>
+      <div class="classDesc">Arcane spellcaster.</div>
+      <div class="classSoon">Coming Soon</div>
+    </button>
+  </div>
+</div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let best = 1;
+  try{ const b = localStorage.getItem('dc_best'); if(b) best = parseInt(b,10)||1; }catch(e){}
+  document.getElementById('best').textContent = best>1 ? ('Best depth reached: '+best) : '';
+
+  // ---------- Save / continue progress (multiple character slots) ----------
+  // Progress persists across exiting the app/tab: level, gold, gear, skills.
+  // A saved character always resumes safely in Town (same as a death/return
+  // does), so no dungeon layout or enemy state needs to be saved. Up to
+  // MAX_CHARACTER_SLOTS characters can be saved side by side; each carries its
+  // own id so saveGame() knows which slot to update.
+  const SAVES_KEY = 'dc_saves_v2';
+  const OLD_SAVE_KEY = 'dc_save_v1'; // single-slot format from before multi-character support
+  const MAX_CHARACTER_SLOTS = 3;
+  function genSaveId(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  function loadAllSaves(){
+    try{
+      const raw = localStorage.getItem(SAVES_KEY);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+  function writeAllSaves(list){
+    try{ localStorage.setItem(SAVES_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  // Migrate a pre-existing single-slot save into the new multi-character list,
+  // once, so nobody's progress from before this update is lost.
+  (function migrateOldSave(){
+    try{
+      const oldRaw = localStorage.getItem(OLD_SAVE_KEY);
+      if(oldRaw){
+        if(loadAllSaves().length===0){
+          const old = JSON.parse(oldRaw);
+          if(old && typeof old==='object'){
+            old.id = genSaveId();
+            old.updatedAt = Date.now();
+            writeAllSaves([old]);
+          }
+        }
+        localStorage.removeItem(OLD_SAVE_KEY);
+      }
+    }catch(e){}
+  })();
+  function saveGame(){
+    if(!game || !game.started || !game.player.saveId) return;
+    try{
+      const p = game.player;
+      const data = {
+        id: p.saveId, v:2,
+        level:p.level, xp:p.xp, xpNext:p.xpNext, gold:p.gold,
+        skillPoints:p.skillPoints, skills:p.skills,
+        equipment:p.equipment, inventory:p.inventory,
+        checkpointDepth:p.checkpointDepth||1,
+        cls:p.cls||'warrior',
+        updatedAt: Date.now(),
+      };
+      const list = loadAllSaves();
+      const idx = list.findIndex(s=>s.id===data.id);
+      if(idx>=0) list[idx] = data; else list.push(data);
+      writeAllSaves(list);
+    }catch(e){}
+  }
+  function deleteSave(id){
+    writeAllSaves(loadAllSaves().filter(s=>s.id!==id));
+  }
+  // Kept for backward compatibility with anything expecting a single "the"
+  // saved character -- returns the most recently updated one, if any.
+  function loadSavedGame(){
+    const list = loadAllSaves();
+    if(list.length===0) return null;
+    return list.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];
+  }
+  // Builds the "Warrior · Defender"-style label shown per character slot.
+  function characterLabel(save){
+    const clsName = save.cls==='ranger' ? 'Ranger' : 'Warrior';
+    let treeName = null;
+    if(save.skills){
+      const TREES = treesForClass(save.cls);
+      outer: for(const key of Object.keys(TREES)){
+        const tree = TREES[key];
+        for(const node of tree.nodes){
+          if((save.skills[node.id]||0) > 0){ treeName = tree.name; break outer; }
+        }
+      }
+    }
+    return treeName ? (clsName+' · '+treeName) : clsName;
+  }
+  // save whenever the app/tab is being backgrounded or closed, plus a
+  // periodic autosave so progress isn't lost even if those events don't fire
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveGame(); });
+  window.addEventListener('pagehide', saveGame);
+  window.addEventListener('beforeunload', saveGame);
+  setInterval(saveGame, 8000);
+
+  // ---------- Input: joystick ----------
+  const joyzone = document.getElementById('joyzone');
+  const joybase = document.getElementById('joybase');
+  const joyknob = document.getElementById('joyknob');
+  let joyActive=false, joyId=null, joyCenter={x:0,y:0}, joyVec={x:0,y:0};
+  const JOY_R = 55;
+
+  function joyStart(id,x,y){
+    joyActive=true; joyId=id; joyCenter={x,y};
+    joybase.style.display='block';
+    joybase.style.left=(x-59)+'px'; joybase.style.top=(y-59)+'px';
+    joyknob.style.left='59px'; joyknob.style.top='59px';
+  }
+  function joyMove(x,y){
+    let dx=x-joyCenter.x, dy=y-joyCenter.y;
+    const d=Math.hypot(dx,dy);
+    const cl=Math.min(d,JOY_R);
+    const ang=Math.atan2(dy,dx);
+    const kx=Math.cos(ang)*cl, ky=Math.sin(ang)*cl;
+    joyknob.style.left=(59+kx)+'px'; joyknob.style.top=(59+ky)+'px';
+    joyVec = d<8 ? {x:0,y:0} : {x:dx/Math.max(d,1)* Math.min(d/JOY_R,1), y:dy/Math.max(d,1)*Math.min(d/JOY_R,1)};
+  }
+  function joyEnd(){
+    joyActive=false; joyId=null; joyVec={x:0,y:0};
+    joybase.style.display='none';
+  }
+  joyzone.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(joyActive) return;
+    const t=e.changedTouches[0];
+    joyStart(t.identifier, t.clientX, t.clientY);
+  },{passive:false});
+  joyzone.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){ if(t.identifier===joyId) joyMove(t.clientX,t.clientY); }
+  },{passive:false});
+  joyzone.addEventListener('touchend',e=>{
+    for(const t of e.changedTouches){ if(t.identifier===joyId) joyEnd(); }
+  });
+  joyzone.addEventListener('touchcancel',()=>joyEnd());
+  // mouse fallback for desktop testing
+  let mouseDown=false;
+  joyzone.addEventListener('mousedown',e=>{ mouseDown=true; joyStart('m',e.clientX,e.clientY); });
+  window.addEventListener('mousemove',e=>{ if(mouseDown) joyMove(e.clientX,e.clientY); });
+  window.addEventListener('mouseup',()=>{ if(mouseDown){ mouseDown=false; joyEnd(); }});
+
+  // ---------- Input: buttons ----------
+  let wantAttack=false, wantDodge=false, blockHeld=false, wantShieldBash=false, wantThrow=false, wantGuardian=false, wantWhirlwind=false, wantAssault=false, wantStance=false, wantRally=false;
+  function bindBtn(el, fn){
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); fn(); }, {passive:false});
+    el.addEventListener('mousedown', e=>{ e.preventDefault(); fn(); });
+  }
+  function bindHold(el, onDown, onUp){
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); onDown(); }, {passive:false});
+    el.addEventListener('touchend', e=>{ e.preventDefault(); onUp(); });
+    el.addEventListener('touchcancel', ()=>onUp());
+    el.addEventListener('mousedown', e=>{ e.preventDefault(); onDown(); });
+    el.addEventListener('mouseup', ()=>onUp());
+    el.addEventListener('mouseleave', ()=>onUp());
+  }
+  bindBtn(document.getElementById('btnAttack'), ()=>wantAttack=true);
+  bindBtn(document.getElementById('btnDodge'), ()=>wantDodge=true);
+  bindBtn(document.getElementById('btnThrow'), ()=>wantThrow=true);
+  bindBtn(document.getElementById('btnGuardian'), ()=>wantGuardian=true);
+  bindBtn(document.getElementById('btnWhirlwind'), ()=>wantWhirlwind=true);
+  bindBtn(document.getElementById('btnAssault'), ()=>wantAssault=true);
+  bindBtn(document.getElementById('btnStance'), ()=>wantStance=true);
+  bindBtn(document.getElementById('btnRally'), ()=>wantRally=true);
+  const blockBtnEl = document.getElementById('btnBlock');
+  bindHold(blockBtnEl, ()=>{
+    blockHeld=true; blockBtnEl.classList.add('holding');
+    if(game && game.player && game.player.skills && game.player.skills.shieldBash) wantShieldBash=true;
+  }, ()=>{ blockHeld=false; blockBtnEl.classList.remove('holding'); });
+
+  // ---------- Utility ----------
+  function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  function rand(a,b){ return a+Math.random()*(b-a); }
+  function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=arr[i]; arr[i]=arr[j]; arr[j]=t; } return arr; }
+  // The Forest's dirt trail is a handful of waypoints (not a straight line) from
+  // the Town-side gate to the Mine-side gate; given any x, finds the trail's
+  // y-center there by interpolating between the two bracketing waypoints.
+  function forestTrailYAt(waypoints, x){
+    for(let i=0;i<waypoints.length-1;i++){
+      const a = waypoints[i], b = waypoints[i+1];
+      const lo = Math.min(a.x,b.x), hi = Math.max(a.x,b.x);
+      if(x>=lo && x<=hi){
+        const t = (x-a.x)/((b.x-a.x)||1);
+        return a.y + (b.y-a.y)*t;
+      }
+    }
+    return waypoints[waypoints.length-1].y;
+  }
+  function circleRectCollide(cx,cy,cr,rx,ry,rw,rh){
+    const nx=clamp(cx,rx,rx+rw), ny=clamp(cy,ry,ry+rh);
+    return Math.hypot(cx-nx,cy-ny) < cr;
+  }
+  function pushOutOfRect(ent,r){
+    if(!circleRectCollide(ent.x,ent.y,ent.r,r.x,r.y,r.w,r.h)) return;
+    const nx=clamp(ent.x,r.x,r.x+r.w), ny=clamp(ent.y,r.y,r.y+r.h);
+    let dx=ent.x-nx, dy=ent.y-ny; let d=Math.hypot(dx,dy);
+    if(d<0.001){ dx=1; dy=0; d=1; }
+    const push=ent.r-d;
+    ent.x += (dx/d)*push; ent.y += (dy/d)*push;
+  }
+
+  // ---------- Isometric projection ----------
+  const ISO_KX = 0.85, ISO_KY = 0.425; // 2:1 iso ratio
+  function toIso(x,y){ return { x:(x-y)*ISO_KX, y:(x+y)*ISO_KY }; }
+  function screenDirToWorld(jx,jy){
+    // convert a screen-space joystick direction into a world-space movement direction
+    const wx = jx/2 + jy, wy = jy - jx/2;
+    const mag = Math.hypot(wx,wy)||1;
+    const inMag = Math.hypot(jx,jy);
+    return { x:(wx/mag)*inMag, y:(wy/mag)*inMag };
+  }
+  function screenFacingSign(fx,fy){ return (fx-fy)>=0 ? 1 : -1; }
+
+  // ---------- Items & Progression ----------
+  const EQUIP_SLOTS = ['helm','armor','amulet','ring1','ring2','boots','gloves','belt','mainhand','offhand'];
+  const SLOT_DISPLAY_ORDER = ['mainhand','offhand','helm','armor','amulet','gloves','ring1','ring2','belt','boots'];
+  const SLOT_LABELS = {helm:'Helm', armor:'Armor', amulet:'Amulet', ring1:'Ring', ring2:'Ring', boots:'Boots', gloves:'Gloves', belt:'Belt', mainhand:'Weapon', offhand:'Shield'};
+  const ITEM_CATEGORIES = ['helm','armor','amulet','ring','boots','gloves','belt','weapon1h','weapon2h','shield','bow'];
+  const ITEM_BASE_NAME = {helm:'Helm', armor:'Plate', amulet:'Amulet', ring:'Ring', boots:'Boots', gloves:'Gauntlets', belt:'Belt', weapon1h:'Sword', weapon2h:'Greatsword', shield:'Shield', bow:'Bow'};
+
+  // Weapons/shields always roll a guaranteed innate stat (their "reason to exist"),
+  // on top of the usual rarity-based random affixes.
+  const INNATE_STAT = {
+    weapon1h: {key:'dmg',   label:'Damage', suffix:'of Wrath', base:10},
+    weapon2h: {key:'dmg',   label:'Damage', suffix:'of Ruin',  base:24},
+    shield:   {key:'armor', label:'Armor',  suffix:'of Wards', base:9},
+    bow:      {key:'dmg',   label:'Damage', suffix:'of the Hawk', base:13},
+  };
+
+  const RARITY = {
+    common: {name:'Common', color:'#9aa0a8', statCount:1, mult:1.0},
+    magic:  {name:'Magic',  color:'#5b8cff', statCount:2, mult:1.4},
+    rare:   {name:'Rare',   color:'#e8c44a', statCount:3, mult:1.9},
+  };
+
+  const AFFIX_POOL = [
+    {key:'hp',    label:'Health',      base:8, suffix:'of Vigor'},
+    {key:'dmg',   label:'Damage',      base:2, suffix:'of Wrath'},
+    {key:'speed', label:'Move Speed',  base:6, suffix:'of the Fox'},
+    {key:'armor', label:'Armor',       base:2, suffix:'of Wards'},
+    {key:'range', label:'Range',       base:4, suffix:'of Reach'},
+    {key:'crit',  label:'Crit %',      base:3, suffix:'of Precision'},
+  ];
+
+  const BASE_MAXHP = 100, BASE_MAXMP = 60, BASE_SPEED = 170;
+  const HP_PER_LEVEL = 14, MP_PER_LEVEL = 8;
+
+  // ---------- Skill Tree ----------
+  // Three columns of abilities. Only Defender has skills so far; Berserker and
+  // Commander are placeholder columns coming later. Points are shared across
+  // all three trees and each column unlocks top-to-bottom.
+  const SKILL_TREES = {
+    defender: { name:'Defender', nodes:[
+      {id:'shieldBash',  name:'Shield Bash',  reqLevel:1,  desc:'The first press of Block strikes like your Strike attack, aimed the same way. Each rank adds damage & speed.'},
+      {id:'shieldThrow', name:'Shield Throw', reqLevel:5,  desc:'New THROW button: hurl your shield to damage & stun an enemy, then it returns. Each rank adds stun duration and cooldown speed.'},
+      {id:'guardian',    name:'Guardian',     reqLevel:10, desc:'New GUARD button: total damage immunity with a golden glow. Each rank adds immunity time.'},
+    ]},
+    berserker: { name:'Berserker', nodes:[
+      {id:'weaponsSpecialist', name:'Weapons Specialist', reqLevel:1,  desc:'Unlocks Greatswords (harder-hitting, armor-piercing, slower) and dual-wielding a second sword (faster attacks) instead of a shield. Each weapon style scales independently with rank.'},
+      {id:'whirlwind',         name:'Whirlwind',          reqLevel:5,  desc:'New WHIRL button: spin in place, striking everything nearby on a fast repeating tick. Each rank adds spin duration.'},
+      {id:'assault',           name:'Assault',            reqLevel:10, desc:'New RAGE button: glow red as damage dealt and damage taken both climb over the duration, with all damage you take reflected back onto the attacker.'},
+    ]},
+    knight: { name:'Knight', nodes:[
+      {id:'squire',     name:'Squire',     reqLevel:1,  desc:'Summons a loyal follower with a sword and shield who fights enemies near you. Each rank increases the follower\'s damage. A second follower joins at Rank 5.'},
+      {id:'commander',  name:'Commander',  reqLevel:5,  desc:'New STANCE button: cycle your followers between Attack, Defend, and Hold Position. Ranks grant Taunt, more Attack-stance damage, more Defend-stance armor, and a Rank 5 charge attack.'},
+      {id:'rally',      name:'Rally',      reqLevel:10, desc:'New RALLY button: raise your shield and let out a war cry. Followers instantly regroup on you, nearby enemies are stunned by the shield-slam, and your followers heal and gain bonus Critical Hit Chance for a short time. Ranks improve the heal, stun, and crit-buff duration.'},
+    ]},
+  };
+  // The Ranger gets its own set of three trees instead of the Warrior's --
+  // all "Coming Soon" placeholders for now, same treatment the Warrior's
+  // trees got before they had skills in them.
+  const RANGER_SKILL_TREES = {
+    assassin: { name:'Assassin', nodes:[] },
+    marksman: { name:'Marksman', nodes:[] },
+    hunter:   { name:'Hunter',   nodes:[] },
+  };
+  function treesForClass(cls){ return cls==='ranger' ? RANGER_SKILL_TREES : SKILL_TREES; }
+  const MAX_SKILL_RANK = 5, SKILL_RANK_STEP = 0.05;
+  const SHIELD_THROW_CD = 6, SHIELD_THROW_RANGE = 320, GUARDIAN_DUR = 3, GUARDIAN_CD = 8;
+  // Ranger basic attack: a bow fires an arrow at range instead of a melee swing.
+  const BOW_RANGE = 340, BOW_ARROW_SPEED = 480;
+  // every monster in the game hits a little harder and soaks a little more damage
+  // than its base numbers below -- applied once, uniformly, in spawnEnemy.
+  const ENEMY_BUFF_MULT = 1.10;
+  // Weapons Specialist gives two independent, weapon-dependent effects that both
+  // scale with rank: a Greatsword hits harder and ignores enemy armor, while
+  // dual-wielding two swords attacks faster. Neither affects the other weapon style.
+  const GREATSWORD_DMG_PER_RANK = 0.08;      // +8% weapon damage per rank, up to +40% at rank 5
+  const GREATSWORD_ARMORPEN_PER_RANK = 0.15; // ignore +15% of enemy armor per rank, up to 75% at rank 5
+  const DUAL_WIELD_ATKSPD_PER_RANK = 0.03;   // +3% attack speed per rank while dual-wielding, up to +15% at rank 5
+  const WHIRLWIND_BASE_DUR = 1.5, WHIRLWIND_RANK_STEP = 0.3, WHIRLWIND_CD = 7, WHIRLWIND_TICK_INTERVAL = 0.25;
+  const ASSAULT_BASE_DUR = 3, ASSAULT_RANK_STEP = 0.5, ASSAULT_CD = 14;
+  const ASSAULT_DEALT_MAX = 0.5, ASSAULT_TAKEN_MAX = 0.5; // ramp from +0% to +50% over the duration
+  // Knight tree: Squire summons follower(s), Commander gives them stances/taunt/charge.
+  const FOLLOWER_AGGRO_RANGE = 240; // enemy must be within this range of the PLAYER for a follower to engage
+  const FOLLOWER_BASE_DMG = 9, FOLLOWER_ATK_CD = 0.75, FOLLOWER_ATK_REACH = 42;
+  const FOLLOWER_BASE_HP = 60, FOLLOWER_HP_PER_LEVEL = 6;
+  const FOLLOWER_FOLLOW_DIST = 55;
+  const TAUNT_RANGE = 170;
+  const FOLLOWER_RESPAWN_TIME = 10; // a fallen follower rejoins after this many seconds, not just on level clear
+  // Commander is a single 5-rank skill that empowers whichever stance the followers
+  // are in: Attack gets more damage per rank, Defend gets more damage reduction AND
+  // block chance per rank. Hold Position has no per-rank bonus, just the behavior.
+  // At Rank 5 the followers automatically gain Charge (Attack stance) and Taunt
+  // (Defend stance) — passive, no extra button.
+  const COMMANDER_ATK_DMG_PER_RANK = 0.08;
+  const COMMANDER_DEF_REDUCTION_PER_RANK = 0.08;
+  const COMMANDER_DEF_BLOCK_PER_RANK = 0.06; // up to 30% block chance at rank 5
+  const FOLLOWER_CHARGE_CD = 5, FOLLOWER_CHARGE_DMG_MULT = 2;
+  const STANCES = ['attack','defend','hold'];
+  // Rally: Knight capstone. Snaps followers back to the Knight, stuns nearby
+  // enemies with a shield-slam, heals followers, and grants them bonus crit
+  // chance for a short window. Rank investment strengthens all of the above.
+  const RALLY_CD = 16;
+  const RALLY_RANGE = 160;              // enemies within this range of the Knight get stunned
+  const RALLY_STUN_BASE = 0.8, RALLY_STUN_RANK_STEP = 0.2;      // stun duration
+  const RALLY_HEAL_PCT_BASE = 0.25, RALLY_HEAL_PCT_RANK_STEP = 0.05; // % of follower max HP healed
+  const RALLY_CRIT_BASE = 15, RALLY_CRIT_RANK_STEP = 5;         // follower crit chance % while buffed
+  const RALLY_CRIT_MULT = 1.8;
+  const RALLY_BUFF_BASE_DUR = 4, RALLY_BUFF_RANK_STEP = 0.6;    // crit-buff duration
+  // Follower's own damage: base + a slice of player level, scaled by Squire rank,
+  // with an Attack-stance bonus from Commander rank.
+  function followerDmg(p, f){
+    const squireRank = (p.skills && p.skills.squire) || 0;
+    const cmdRank = (p.skills && p.skills.commander) || 0;
+    let dmg = (FOLLOWER_BASE_DMG + p.level*1.1) * skillMult(squireRank);
+    if(f.stance==='attack' && cmdRank>0) dmg *= (1 + COMMANDER_ATK_DMG_PER_RANK*cmdRank);
+    // Rally: while the post-rally buff window is active, followers get a
+    // rank-scaled chance to land a bonus-damage critical hit.
+    const rallyRank = (p.skills && p.skills.rally) || 0;
+    if(rallyRank>0 && p.rallyT>0){
+      const critChance = RALLY_CRIT_BASE + RALLY_CRIT_RANK_STEP*(rallyRank-1);
+      if(Math.random()*100 < critChance) dmg *= RALLY_CRIT_MULT;
+    }
+    return dmg;
+  }
+  function makeFollower(p, idx){
+    return {
+      idx, x:p.x, y:p.y, r:13, hp:FOLLOWER_BASE_HP+FOLLOWER_HP_PER_LEVEL*p.level, maxHp:FOLLOWER_BASE_HP+FOLLOWER_HP_PER_LEVEL*p.level,
+      stance: (game && game.followerStance) || 'attack', hitT:0, animT:0, facing:{x:1,y:0}, faceSign:1, moving:false,
+      atkCd:0, chargeCd:FOLLOWER_CHARGE_CD, taunting:false, holdPos:null,
+    };
+  }
+  // Spawns/trims g.followers to match how many Squire rank currently grants (0, 1, or 2 at rank 5+).
+  function ensureFollowers(g){
+    const p = g.player;
+    const squireRank = (p.skills && p.skills.squire) || 0;
+    const wanted = squireRank<=0 ? 0 : (squireRank>=MAX_SKILL_RANK ? 2 : 1);
+    if(!g.followers) g.followers = [];
+    while(g.followers.length < wanted) g.followers.push(makeFollower(p, g.followers.length));
+    if(g.followers.length > wanted) g.followers.length = wanted;
+  }
+  // A taunting follower within range redirects enemy aggro away from the player.
+  // Taunt is a passive that only kicks in for a follower in Defend stance at Rank 5.
+  function pickEnemyTarget(g, e){
+    const p = g.player;
+    if(g.followers && g.followers.length){
+      let best = null, bestD = Infinity;
+      for(const f of g.followers){
+        if(!f.taunting) continue;
+        const d = dist(e, f);
+        if(d < TAUNT_RANGE && d < bestD){ bestD = d; best = f; }
+      }
+      if(best) return best;
+    }
+    return p;
+  }
+  function applyFollowerDamage(g, f, amt, srcEnemy){
+    const cmdRank = (g.player.skills && g.player.skills.commander) || 0;
+    if(f.stance==='defend' && cmdRank>0){
+      const blockChance = Math.min(0.6, COMMANDER_DEF_BLOCK_PER_RANK*cmdRank);
+      if(Math.random() < blockChance){ f.hitT = 0.1; return; } // blocked, no damage
+    }
+    let dmg = amt;
+    if(f.stance==='defend' && cmdRank>0) dmg *= Math.max(0.1, 1 - COMMANDER_DEF_REDUCTION_PER_RANK*cmdRank);
+    f.hp -= dmg;
+    f.hitT = 0.15;
+    if(f.hp <= 0){
+      const i = g.followers.indexOf(f);
+      if(i>=0) g.followers.splice(i,1);
+      showMsg('Your follower has fallen', 1.2);
+      // it will rejoin on its own after a short delay, rather than staying gone
+      // until the level is cleared -- see the respawn check in update().
+      g.followerRespawnCd = FOLLOWER_RESPAWN_TIME;
+    }
+  }
+  function skillMult(rank){ return rank>0 ? 1 + SKILL_RANK_STEP*(rank-1) : 1; }
+  function fmtNum(n){ return (Math.round(n*100)/100).toString(); }
+  // 1 while Assault isn't active; ramps from 1 up to 1+ASSAULT_DEALT_MAX over its duration.
+  function assaultDealtMult(p){
+    if(!(p.assaultT>0)) return 1;
+    const durMax = p.assaultDurMax||1;
+    const frac = clamp(1 - p.assaultT/durMax, 0, 1);
+    return 1 + ASSAULT_DEALT_MAX*frac;
+  }
+  // Weapons Specialist: a Greatsword deals bonus damage that scales with rank.
+  // Dual-wielding gets its attack-speed bonus separately, inside recalcStats.
+  function weaponDmgMult(p){
+    const mh = p.equipment && p.equipment.mainhand;
+    const rank = (p.skills && p.skills.weaponsSpecialist) || 0;
+    if(mh && mh.twoHanded && rank>0) return 1 + GREATSWORD_DMG_PER_RANK*rank;
+    return 1;
+  }
+  // Greatsword armor penetration: ignores a rank-scaled fraction of the
+  // target's armor. Has no effect on any other weapon, or against unarmored foes.
+  function applyEnemyArmor(p, e, dmg){
+    const armor = e.armor||0;
+    if(armor<=0) return dmg;
+    const mh = p.equipment && p.equipment.mainhand;
+    const rank = (p.skills && p.skills.weaponsSpecialist) || 0;
+    let pen = 0;
+    if(mh && mh.twoHanded && rank>0) pen = Math.min(1, GREATSWORD_ARMORPEN_PER_RANK*rank);
+    return Math.max(1, dmg - armor*(1-pen));
+  }
+  // Skill trees are mutually exclusive once you've put a point into one: picking
+  // up Berserker locks Defender for that character, and vice versa.
+  function committedTreeKey(p){
+    const TREES = treesForClass(p.cls);
+    for(const treeKey of Object.keys(TREES)){
+      const tree = TREES[treeKey];
+      if(tree.nodes.length===0) continue;
+      for(const node of tree.nodes){
+        if((p.skills[node.id]||0) > 0) return treeKey;
+      }
+    }
+    return null;
+  }
+
+  // ---------- Town & Blacksmith ----------
+  const SELL_PRICE = {common:15, magic:35, rare:70};
+  function priceFor(item){ return SELL_PRICE[item.rarity]||15; }
+  function buyPriceFor(item){ return Math.round(priceFor(item)*2.5); }
+  function genShopStock(){
+    const stock = [];
+    for(let i=0;i<5;i++){
+      const r = Math.random();
+      const rarity = r<0.55 ? 'common' : r<0.88 ? 'magic' : 'rare';
+      stock.push(generateItem(1, rarity));
+    }
+    return stock;
+  }
+  function makeTown(){
+    return {
+      w:820, h:560, obstacles:[],
+      blacksmith:{x:260, y:280, r:24},
+      // the exit sits right at the map's edge (a gap in the perimeter fence)
+      // rather than a standalone gate structure planted mid-square
+      gate:{x:812, y:280, r:36},
+      // a standing blue portal back down to the Mine at your checkpoint depth --
+      // only interactable/drawn once a boss clear has unlocked a checkpoint
+      // beyond depth 1 (see updateTown/render's checkpointDepth>1 checks)
+      minePortal:{x:650, y:190, r:28},
+      spawn:{x:130, y:280},
+      stock: genShopStock(),
+      // purely decorative outdoor scenery -- a couple of larger buildings to
+      // make the square feel lived-in, plus trees dotted around the perimeter
+      decoBuildings:[
+        {x:420, y:64, w:132, h:92, hz:56, roofH:38,
+         wallTop:'#5a5460', wallRight:'#2a2630', wallFront:'#3a3440',
+         roofRight:'#2e3a52', roofFront:'#3c4a68', door:true, window:true},
+        {x:560, y:410, w:112, h:80, hz:50, roofH:32,
+         wallTop:'#6a5a4a', wallRight:'#332a20', wallFront:'#453a2c',
+         roofRight:'#4a3a2a', roofFront:'#5e4a36', door:true, window:false},
+      ],
+      trees:[
+        {x:50,y:50}, {x:770,y:50}, {x:50,y:510}, {x:770,y:510},
+        {x:340,y:502}, {x:520,y:502}, {x:96,y:230}, {x:96,y:360},
+        {x:770,y:170}, {x:770,y:420}, {x:420,y:498}, {x:610,y:56},
+        {x:230,y:56}, {x:230,y:502},
+      ],
+    };
+  }
+
+  // Between Town and the endless Mine: a large open woodland whose two exits
+  // sit at the map's own edges (a gap in the treeline), rather than standalone
+  // gate structures. The two exits are offset to different heights on their
+  // edges, so the dirt trail connecting them winds rather than running dead
+  // straight across. Roaming wolves, web-slinging spiders, and brute-tier
+  // bears gather in spread-out packs off the beaten path -- they hold their
+  // ground until the player wanders close, rather than beelining in on sight
+  // -- and the population respawns over time rather than being a one-time clear.
+  const FOREST_ENEMY_TYPES = ['wolf','wolf','spider','bear'];
+  // Packs are now grouped by monster type rather than mixed -- a wolf pack, a
+  // spider pack, and a (smaller) bear pack, each spawned as a cluster of that
+  // one type around an anchor point.
+  const FOREST_PACK_TEMPLATES = [
+    { type:'wolf',   count:5 },
+    { type:'spider', count:5 },
+    { type:'bear',   countMin:2, countMax:3 },
+  ];
+  function makeForest(){
+    const w=1700, h=1200;
+
+    // the two exits sit at different heights on opposite edges, so crossing the
+    // forest is a diagonal walk through the woods rather than a straight line
+    const townGate = {x:16, y:rand(180,340), r:34};
+    const mineGate = {x:w-16, y:rand(h-340,h-180), r:36};
+
+    // a handful of waypoints between the gates, each nudged off the straight
+    // line between them, gives the dirt trail a natural, winding shape
+    const waypoints = [{x:townGate.x, y:townGate.y}];
+    const segs = 5;
+    for(let i=1;i<segs;i++){
+      const t = i/segs;
+      const bx = townGate.x + (mineGate.x-townGate.x)*t;
+      const by = townGate.y + (mineGate.y-townGate.y)*t;
+      waypoints.push({x:bx+rand(-70,70), y:by+rand(-160,160)});
+    }
+    waypoints.push({x:mineGate.x, y:mineGate.y});
+
+    const trees=[];
+    for(let x=40; x<w-40; x+=70){ trees.push({x, y:36}); trees.push({x, y:h-36}); }
+    for(let y=90; y<h-90; y+=80){
+      // leave a gap in the treeline at each exit's own position on its edge
+      if(Math.abs(y-townGate.y) > 55) trees.push({x:36, y});
+      if(Math.abs(y-mineGate.y) > 55) trees.push({x:w-36, y});
+    }
+    // scattered interior trees, keeping the winding trail clear
+    for(let i=0;i<130;i++){
+      const x = rand(90, w-90), y = rand(90, h-90);
+      if(Math.abs(y-forestTrailYAt(waypoints,x)) < 70) continue;
+      trees.push({x,y});
+    }
+
+    // pack anchors: cluster spawn points spread across the map, kept off the
+    // trail and away from the two gates, and spaced apart from each other so
+    // packs don't overlap -- this is what gives the player room to explore
+    // between fights instead of enemies converging on the path
+    const packAnchors = [];
+    let tries=0;
+    while(packAnchors.length < 8 && tries<500){
+      tries++;
+      const x = rand(140, w-140), y = rand(140, h-140);
+      if(Math.abs(y-forestTrailYAt(waypoints,x)) < 120) continue;
+      if(dist({x,y},townGate) < 240 || dist({x,y},mineGate) < 240) continue;
+      if(packAnchors.some(a=>dist(a,{x,y}) < 280)) continue;
+      packAnchors.push({x,y});
+    }
+
+    return { w, h, obstacles:[], townGate, mineGate, trees, waypoints, packAnchors };
+  }
+  function forestPackSize(t){ return t.count!=null ? t.count : Math.floor(rand(t.countMin, t.countMax+1)); }
+  // Spawns a same-type cluster of enemies around an anchor point instead of one
+  // at a time near the player -- this is a "pack" the player can see and choose
+  // whether to engage with, spread out from other packs across the Forest.
+  // Defaults to a random template (wolf/spider/bear) when none is given, which
+  // is what the ongoing respawn cycle uses; enterForest() passes one of each
+  // explicitly so every visit guarantees a wolf pack, a spider pack, and a
+  // bear pack rather than leaving it to chance.
+  function spawnForestPack(g, anchor, template){
+    const t = template || FOREST_PACK_TEMPLATES[Math.floor(Math.random()*FOREST_PACK_TEMPLATES.length)];
+    const n = forestPackSize(t);
+    const spread = 40 + n*6; // a bit more room for bigger packs so members don't stack
+    for(let i=0;i<n;i++){
+      spawnEnemy(g, t.type, {x:anchor.x+rand(-spread,spread), y:anchor.y+rand(-spread,spread)});
+    }
+  }
+
+  function pickRarity(depth){
+    if(depth < 6) return 'common'; // depths 1-5: common gear only, progression stays gentle
+    const d = depth - 5;
+    const rareChance = clamp(0.06 + d*0.01, 0.06, 0.22);
+    const magicChance = clamp(0.30 + d*0.01, 0.30, 0.45);
+    const r = Math.random();
+    if(r < rareChance) return 'rare';
+    if(r < rareChance+magicChance) return 'magic';
+    return 'common';
+  }
+
+  function generateItem(depth, forcedRarity, forcedCategory){
+    const category = forcedCategory || ITEM_CATEGORIES[Math.floor(Math.random()*ITEM_CATEGORIES.length)];
+    const rarity = forcedRarity || pickRarity(depth);
+    const rdef = RARITY[rarity];
+    const innate = INNATE_STAT[category];
+    let affixes = [];
+    if(innate){
+      affixes.push({
+        key:innate.key, label:innate.label, suffix:innate.suffix,
+        value: Math.max(1, Math.round(innate.base*(1+depth*0.12)*rdef.mult*rand(0.9,1.1)))
+      });
+    }
+    const pool = innate ? AFFIX_POOL.filter(a=>a.key!==innate.key) : AFFIX_POOL;
+    const extraCount = innate ? Math.max(0, rdef.statCount-1) : rdef.statCount;
+    const shuffled = pool.slice().sort(()=>Math.random()-0.5);
+    const chosen = shuffled.slice(0, extraCount);
+    affixes = affixes.concat(chosen.map(a=>({
+      key:a.key, label:a.label, suffix:a.suffix,
+      value: Math.max(1, Math.round(a.base*(1+depth*0.12)*rdef.mult*rand(0.85,1.15)))
+    })));
+    const primary = affixes[0];
+    const name = rdef.name+' '+ITEM_BASE_NAME[category]+' '+(primary.suffix||'');
+    return {
+      id:'it'+Math.random().toString(36).slice(2,9), slotType:category, rarity, name, affixes, color:rdef.color,
+      twoHanded: category==='weapon2h',
+    };
+  }
+
+  function equipItem(p, item){
+    const hasWeaponsSpec = !!(p.skills && p.skills.weaponsSpecialist>0);
+    // Greatswords are locked behind the Weapons Specialist skill -- until then
+    // you're a single sword-and-shield fighter.
+    if(item.slotType==='weapon2h' && !hasWeaponsSpec){
+      showMsg('Requires Weapons Specialist', 1.3);
+      return;
+    }
+
+    let targetSlot;
+    if(item.slotType==='ring'){
+      targetSlot = !p.equipment.ring1 ? 'ring1' : (!p.equipment.ring2 ? 'ring2' : 'ring1');
+    } else if(item.slotType==='weapon1h'){
+      if(!p.equipment.mainhand){
+        targetSlot = 'mainhand';
+      } else if(hasWeaponsSpec && p.equipment.mainhand.slotType==='weapon1h' &&
+                 (!p.equipment.offhand || p.equipment.offhand.slotType==='shield')){
+        // Weapons Specialist: dual-wield a second sword in the off-hand,
+        // bumping any shield there back to the bag.
+        if(p.equipment.offhand) p.inventory.push(p.equipment.offhand);
+        p.equipment.offhand = null;
+        targetSlot = 'offhand';
+      } else {
+        targetSlot = 'mainhand';
+      }
+    } else if(item.slotType==='weapon2h' || item.slotType==='bow'){
+      targetSlot = 'mainhand';
+    } else if(item.slotType==='shield'){
+      targetSlot = 'offhand';
+    } else {
+      targetSlot = item.slotType;
+    }
+
+    // a greatsword or bow needs both hands: bump whatever's in the off-hand back to the bag
+    if((item.slotType==='weapon2h' || item.slotType==='bow') && p.equipment.offhand){
+      p.inventory.push(p.equipment.offhand);
+      p.equipment.offhand = null;
+    }
+    // a shield needs a free off-hand: bump a two-handed weapon or bow back to the bag
+    if(item.slotType==='shield' && p.equipment.mainhand &&
+       (p.equipment.mainhand.twoHanded || p.equipment.mainhand.slotType==='bow')){
+      p.inventory.push(p.equipment.mainhand);
+      p.equipment.mainhand = null;
+    }
+
+    const old = p.equipment[targetSlot];
+    p.equipment[targetSlot] = item;
+    const idx = p.inventory.indexOf(item);
+    if(idx>=0) p.inventory.splice(idx,1);
+    if(old) p.inventory.push(old);
+    recalcStats(p);
+  }
+
+  function unequipSlot(p, slot){
+    const it = p.equipment[slot];
+    if(!it) return;
+    p.equipment[slot] = null;
+    p.inventory.push(it);
+    recalcStats(p);
+  }
+
+  const BASE_ATK_CD = 0.46;
+
+  function recalcStats(p){
+    let addHp=0, addMp=0, addSpeed=0, addDmg=0, addRange=0, addCrit=0, addArmor=0;
+    const eq = p.equipment || {};
+    for(const slot of EQUIP_SLOTS){
+      const it = eq[slot];
+      if(!it) continue;
+      for(const af of it.affixes){
+        if(af.key==='hp') addHp+=af.value;
+        else if(af.key==='dmg') addDmg+=af.value;
+        else if(af.key==='speed') addSpeed+=af.value;
+        else if(af.key==='armor') addArmor+=af.value;
+        else if(af.key==='range') addRange+=af.value;
+        else if(af.key==='mp') addMp+=af.value;
+        else if(af.key==='crit') addCrit+=af.value;
+      }
+    }
+    // a greatsword swings slower but reaches further than a one-handed weapon;
+    // dual-wielding (Weapons Specialist) speeds attacks up instead, scaling with rank.
+    // The two effects are independent -- only one can apply, since you can't have
+    // both a greatsword and a second sword equipped at once.
+    const mh = eq.mainhand, offhWpn = eq.offhand;
+    const dualWield = !!(mh && mh.slotType==='weapon1h' && offhWpn && offhWpn.slotType==='weapon1h');
+    const wpnSpecRank = (p.skills && p.skills.weaponsSpecialist) || 0;
+    let atkSpeedMod = 1.0;
+    if(mh && mh.twoHanded){
+      atkSpeedMod = 1.32;
+      addRange += 14;
+    } else if(dualWield && wpnSpecRank>0){
+      atkSpeedMod *= (1 - wpnSpecRank*DUAL_WIELD_ATKSPD_PER_RANK);
+    }
+    const newMaxHp = BASE_MAXHP + (p.level-1)*HP_PER_LEVEL + addHp;
+    const newMaxMp = BASE_MAXMP + (p.level-1)*MP_PER_LEVEL + addMp;
+    const hpDiff = newMaxHp - (p.maxHp==null ? newMaxHp : p.maxHp);
+    p.maxHp = newMaxHp;
+    p.hp = (p.hp==null) ? newMaxHp : clamp(p.hp + Math.max(0,hpDiff), 0, p.maxHp);
+    const mpDiff = newMaxMp - (p.maxMp==null ? newMaxMp : p.maxMp);
+    p.maxMp = newMaxMp;
+    p.mp = (p.mp==null) ? newMaxMp : clamp(p.mp + Math.max(0,mpDiff), 0, p.maxMp);
+    p.speed = BASE_SPEED + addSpeed;
+    p.dmgBonus = addDmg;
+    p.rangeBonus = addRange;
+    p.critChance = addCrit;
+    p.armor = addArmor;
+    p.atkCdMax = BASE_ATK_CD * atkSpeedMod;
+  }
+
+  // ---------- Inventory & Skill UI ----------
+  const bagBtn = document.getElementById('bagBtn');
+  const bagBadge = document.getElementById('bagBadge');
+  const invOverlay = document.getElementById('invOverlay');
+  const invClose = document.getElementById('invClose');
+  const skillsBtn = document.getElementById('skillsBtn');
+  const skillsBadge = document.getElementById('skillsBadge');
+  const skillTreeOverlay = document.getElementById('skillTreeOverlay');
+  const treeClose = document.getElementById('treeClose');
+  const treeColsEl = document.getElementById('treeCols');
+  const treePointsText = document.getElementById('treePointsText');
+
+  function statSummaryHtml(p){
+    const hasShield = !!(p.equipment.offhand && p.equipment.offhand.slotType==='shield');
+    return (
+      '<div>HP<b>'+Math.round(p.maxHp)+'</b></div>'+
+      '<div>BLK<b>'+(hasShield?'70%':'&mdash;')+'</b></div>'+
+      '<div>SPD<b>'+Math.round(p.speed)+'</b></div>'+
+      '<div>DMG<b>+'+Math.round(p.dmgBonus||0)+'</b></div>'+
+      '<div>RNG<b>+'+Math.round(p.rangeBonus||0)+'</b></div>'+
+      '<div>ARM<b>'+Math.round(p.armor||0)+'</b></div>'
+    );
+  }
+
+  function renderInventory(){
+    const p = game.player;
+    document.getElementById('invStats').innerHTML = statSummaryHtml(p);
+    const slotsEl = document.getElementById('invSlots');
+    slotsEl.innerHTML = SLOT_DISPLAY_ORDER.map(slot=>{
+      const it = p.equipment[slot];
+      const blocked = !it && slot==='offhand' && p.equipment.mainhand && p.equipment.mainhand.twoHanded;
+      const short = it ? it.name.replace(RARITY[it.rarity].name+' ','') : (blocked ? 'Two-Handed' : 'Empty');
+      const label = (slot==='offhand' && it && it.slotType==='weapon1h') ? 'Off-Hand' : SLOT_LABELS[slot];
+      return '<div class="slotBox'+(it?' filled':'')+'" data-slot="'+slot+'">'+
+        '<div class="slotLabel">'+label+'</div>'+
+        '<div class="slotItem" style="color:'+(it?it.color:'#5c5460')+'">'+short+'</div>'+
+      '</div>';
+    }).join('');
+    slotsEl.querySelectorAll('.slotBox').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const slot = el.dataset.slot;
+        if(p.equipment[slot]){ unequipSlot(p, slot); renderInventory(); saveGame(); }
+      });
+    });
+    const bagEl = document.getElementById('invBag');
+    if(p.inventory.length===0){
+      bagEl.innerHTML = '<div class="bagEmpty">No items collected yet</div>';
+    } else {
+      bagEl.innerHTML = p.inventory.map((it,i)=>(
+        '<div class="bagItem" data-idx="'+i+'">'+
+          '<div>'+
+            '<div class="biName" style="color:'+it.color+'">'+it.name+'</div>'+
+            '<div class="biStats">'+it.affixes.map(a=>'+'+a.value+' '+a.label).join(' &middot; ')+'</div>'+
+          '</div>'+
+          '<div class="biTap">TAP TO<br>EQUIP</div>'+
+        '</div>'
+      )).join('');
+      bagEl.querySelectorAll('.bagItem').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          const idx = parseInt(el.dataset.idx,10);
+          const it = p.inventory[idx];
+          if(it){ equipItem(p, it); renderInventory(); saveGame(); }
+        });
+      });
+    }
+  }
+
+  function openInventory(){
+    game.modalOpen = true;
+    bagBadge.style.display = 'none';
+    renderInventory();
+    invOverlay.style.display='flex';
+  }
+  function closeInventory(){
+    invOverlay.style.display='none';
+    game.modalOpen = false;
+  }
+  invClose.addEventListener('click', closeInventory);
+  bagBtn.addEventListener('click', ()=>{
+    if(!game || !game.started || game.over) return;
+    if(game.modalOpen) return;
+    openInventory();
+  });
+
+  // ---------- Shop (Blacksmith) UI ----------
+  const shopOverlay = document.getElementById('shopOverlay');
+  const shopClose = document.getElementById('shopClose');
+  function renderShop(){
+    const p = game.player;
+    document.getElementById('shopGold').textContent = p.gold+'g';
+    const stockEl = document.getElementById('shopStock');
+    stockEl.innerHTML = game.town.stock.length ? game.town.stock.map((it,i)=>{
+      const price = buyPriceFor(it);
+      const afford = p.gold>=price;
+      return '<div class="bagItem'+(afford?'':' cantAfford')+'" data-idx="'+i+'">'+
+        '<div><div class="biName" style="color:'+it.color+'">'+it.name+'</div>'+
+        '<div class="biStats">'+it.affixes.map(a=>'+'+a.value+' '+a.label).join(' &middot; ')+'</div></div>'+
+        '<div class="biTap">'+price+'g<br>'+(afford?'TAP TO BUY':'TOO POOR')+'</div>'+
+      '</div>';
+    }).join('') : '<div class="bagEmpty">Sold out for now</div>';
+    stockEl.querySelectorAll('.bagItem').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const idx = parseInt(el.dataset.idx,10);
+        const it = game.town.stock[idx];
+        if(!it) return;
+        const price = buyPriceFor(it);
+        if(game.player.gold < price) return;
+        game.player.gold -= price;
+        game.player.inventory.push(it);
+        game.town.stock.splice(idx,1);
+        renderShop();
+        saveGame();
+      });
+    });
+    const bagEl = document.getElementById('shopBag');
+    bagEl.innerHTML = p.inventory.length ? p.inventory.map((it,i)=>{
+      const price = priceFor(it);
+      return '<div class="bagItem" data-idx="'+i+'">'+
+        '<div><div class="biName" style="color:'+it.color+'">'+it.name+'</div>'+
+        '<div class="biStats">'+it.affixes.map(a=>'+'+a.value+' '+a.label).join(' &middot; ')+'</div></div>'+
+        '<div class="biTap">'+price+'g<br>TAP TO SELL</div>'+
+      '</div>';
+    }).join('') : '<div class="bagEmpty">Nothing to sell</div>';
+    bagEl.querySelectorAll('.bagItem').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const idx = parseInt(el.dataset.idx,10);
+        const it = game.player.inventory[idx];
+        if(!it) return;
+        game.player.gold += priceFor(it);
+        game.player.inventory.splice(idx,1);
+        renderShop();
+        saveGame();
+      });
+    });
+  }
+  function openShop(){
+    game.modalOpen = true;
+    renderShop();
+    shopOverlay.style.display='flex';
+  }
+  function closeShop(){
+    shopOverlay.style.display='none';
+    game.modalOpen = false;
+  }
+  shopClose.addEventListener('click', closeShop);
+
+  // ---------- Interact prompt (Blacksmith / zone gates) ----------
+  let interactKind = null;
+  const btnInteract = document.getElementById('btnInteract');
+  const interactLbl = document.getElementById('interactLbl');
+  const INTERACT_LABELS = {shop:'Talk to Blacksmith', toForest:'Enter the Forest', toTown:'Return to Town', toMine:'Enter the Abandoned Mine'};
+  function updateInteractPrompt(kind){
+    interactKind = kind;
+    if(!kind){ btnInteract.style.display = 'none'; return; }
+    interactLbl.textContent = INTERACT_LABELS[kind] || 'Interact';
+    btnInteract.style.display = 'flex';
+  }
+  bindBtn(btnInteract, ()=>{
+    if(interactKind==='shop') openShop();
+    else if(interactKind==='toForest') enterForest();
+    else if(interactKind==='toTown') goToTownSafe();
+    else if(interactKind==='toMine') enterMine();
+  });
+
+  // ---------- Portal choice (Return to Town / Continue to Next Level) ----------
+  let portalNear = false;
+  const portalChoiceEl = document.getElementById('portalChoice');
+  const btnPortalTownEl = document.getElementById('btnPortalTown');
+  function updatePortalChoice(near){
+    if(near===portalNear) return;
+    portalNear = near;
+    portalChoiceEl.style.display = near ? 'flex' : 'none';
+    // Return to Town is only offered on a boss-floor clear -- push past a boss
+    // and you're committed until the next one, five floors later.
+    btnPortalTownEl.style.display = (near && game && game.portalIsBoss) ? 'block' : 'none';
+  }
+  bindBtn(document.getElementById('btnPortalNext'), ()=>{
+    if(!portalNear) return;
+    updatePortalChoice(false);
+    nextDepth();
+  });
+  bindBtn(btnPortalTownEl, ()=>{
+    if(!portalNear || !game.portalIsBoss) return;
+    updatePortalChoice(false);
+    goToTownSafe();
+  });
+
+  function canRankUp(p, treeKey, idx){
+    const TREES = treesForClass(p.cls);
+    const node = TREES[treeKey].nodes[idx];
+    if(!node) return false;
+    const committed = committedTreeKey(p);
+    if(committed && committed!==treeKey) return false;
+    const rank = p.skills[node.id]||0;
+    if(rank>=MAX_SKILL_RANK) return false;
+    if(rank===0){
+      if(p.level < node.reqLevel) return false;
+      if(idx>0 && (p.skills[TREES[treeKey].nodes[idx-1].id]||0) < 1) return false;
+    }
+    return (p.skillPoints||0) > 0;
+  }
+
+  function nodeEffectText(node, rank){
+    const mult = skillMult(rank);
+    if(node.id==='shieldBash'){
+      return rank===0 ? 'Matches Strike damage & speed at Rank 1.' : ('Damage & speed: +'+Math.round((mult-1)*100)+'%');
+    }
+    if(node.id==='shieldThrow'){
+      const stun = rank>0 ? 1 + 0.25*(rank-1) : 1;
+      return rank===0 ? '1s stun at Rank 1, up to 2s at Rank 5.' : ('Stun '+fmtNum(stun)+'s &middot; Dmg/CD +'+Math.round((mult-1)*100)+'%');
+    }
+    if(node.id==='guardian'){
+      const dur = rank>0 ? GUARDIAN_DUR*mult : GUARDIAN_DUR;
+      return rank===0 ? (GUARDIAN_DUR+'s immunity at Rank 1.') : ('Immunity: '+fmtNum(dur)+'s');
+    }
+    if(node.id==='weaponsSpecialist'){
+      if(rank===0) return 'Unlocks Greatswords & dual-wielding.';
+      const gsDmg = Math.round(GREATSWORD_DMG_PER_RANK*rank*100);
+      const gsPen = Math.round(Math.min(1, GREATSWORD_ARMORPEN_PER_RANK*rank)*100);
+      const dwSpd = Math.round(DUAL_WIELD_ATKSPD_PER_RANK*rank*100);
+      return 'Greatsword: +'+gsDmg+'% dmg, '+gsPen+'% armor pen &middot; Dual-wield: +'+dwSpd+'% attack speed';
+    }
+    if(node.id==='whirlwind'){
+      const dur = rank>0 ? WHIRLWIND_BASE_DUR + WHIRLWIND_RANK_STEP*(rank-1) : WHIRLWIND_BASE_DUR;
+      return rank===0 ? (WHIRLWIND_BASE_DUR+'s spin at Rank 1.') : ('Spin duration: '+fmtNum(dur)+'s');
+    }
+    if(node.id==='assault'){
+      const dur = rank>0 ? ASSAULT_BASE_DUR + ASSAULT_RANK_STEP*(rank-1) : ASSAULT_BASE_DUR;
+      return rank===0 ? (ASSAULT_BASE_DUR+'s at Rank 1.') : ('Duration: '+fmtNum(dur)+'s');
+    }
+    if(node.id==='squire'){
+      if(rank===0) return 'Summons a follower to fight at your side.';
+      const bonus = Math.round((mult-1)*100);
+      return 'Follower dmg: +'+bonus+'%'+(rank>=MAX_SKILL_RANK ? ' &middot; 2nd follower active' : '');
+    }
+    if(node.id==='commander'){
+      if(rank===0) return 'Unlocks the STANCE button: cycle followers between Attack, Defend & Hold Position.';
+      const atkBonus = Math.round(COMMANDER_ATK_DMG_PER_RANK*rank*100);
+      const defBonus = Math.round(COMMANDER_DEF_REDUCTION_PER_RANK*rank*100);
+      const blockChance = Math.round(Math.min(0.6, COMMANDER_DEF_BLOCK_PER_RANK*rank)*100);
+      return 'Attack dmg +'+atkBonus+'% &middot; Defend dmg taken -'+defBonus+'%, block '+blockChance+'%'+(rank>=MAX_SKILL_RANK ? ' &middot; Rank 5: Charge (Attack) & Taunt (Defend) unlocked' : '');
+    }
+    if(node.id==='rally'){
+      if(rank===0) return 'New RALLY button: regroup, stun, heal & crit-buff your followers.';
+      const stun = RALLY_STUN_BASE + RALLY_STUN_RANK_STEP*(rank-1);
+      const healPct = Math.round((RALLY_HEAL_PCT_BASE + RALLY_HEAL_PCT_RANK_STEP*(rank-1))*100);
+      const critChance = RALLY_CRIT_BASE + RALLY_CRIT_RANK_STEP*(rank-1);
+      const buffDur = RALLY_BUFF_BASE_DUR + RALLY_BUFF_RANK_STEP*(rank-1);
+      return 'Stun '+fmtNum(stun)+'s &middot; Heal '+healPct+'% &middot; +'+Math.round(critChance)+'% crit for '+fmtNum(buffDur)+'s';
+    }
+    return '';
+  }
+
+  function updateSkillButtonsVisibility(){
+    if(!game) return;
+    const p = game.player;
+    document.getElementById('btnThrow').style.display = (p.skills && p.skills.shieldThrow>0) ? 'flex' : 'none';
+    document.getElementById('btnGuardian').style.display = (p.skills && p.skills.guardian>0) ? 'flex' : 'none';
+    document.getElementById('btnWhirlwind').style.display = (p.skills && p.skills.whirlwind>0) ? 'flex' : 'none';
+    document.getElementById('btnAssault').style.display = (p.skills && p.skills.assault>0) ? 'flex' : 'none';
+    document.getElementById('btnStance').style.display = (p.skills && p.skills.commander>0) ? 'flex' : 'none';
+    document.getElementById('btnRally').style.display = (p.skills && p.skills.rally>0) ? 'flex' : 'none';
+    updateStanceButtonLabel();
+  }
+  // The STANCE button's label always shows the follower stance it will switch
+  // TO next isn't right -- it should reflect the CURRENT stance, so the player
+  // can tell what their followers are doing right now.
+  function updateStanceButtonLabel(){
+    if(!game) return;
+    const label = {attack:'ATTACK', defend:'DEFEND', hold:'HOLD'}[game.followerStance] || 'STANCE';
+    const el = document.querySelector('#btnStance .lbl');
+    if(el) el.textContent = label;
+  }
+
+  function renderSkillTree(){
+    const p = game.player;
+    const TREES = treesForClass(p.cls);
+    const committed = committedTreeKey(p);
+    treePointsText.textContent = (p.skillPoints>0) ? (p.skillPoints+' point'+(p.skillPoints>1?'s':'')+' available') : 'No points available';
+    treeColsEl.innerHTML = Object.keys(TREES).map(treeKey=>{
+      const tree = TREES[treeKey];
+      const treeLocked = !!(committed && committed!==treeKey && tree.nodes.length>0);
+      let nodesHtml;
+      if(tree.nodes.length===0){
+        nodesHtml = '<div class="treeComingSoon">Coming<br>Soon</div>';
+      } else {
+        nodesHtml = tree.nodes.map((node,idx)=>{
+          const rank = p.skills[node.id]||0;
+          const lockedByPrev = rank===0 && idx>0 && (p.skills[tree.nodes[idx-1].id]||0) < 1;
+          const available = canRankUp(p, treeKey, idx);
+          const maxed = rank>=MAX_SKILL_RANK;
+          let cls = 'treeNode ' + (maxed ? 'unlocked' : rank>0 ? 'unlocked' : available ? 'available' : 'locked');
+          if(available && !maxed) cls += ' available';
+          let reqText;
+          if(maxed) reqText = 'Rank 5/5 (Max)';
+          else if(rank>0) reqText = 'Rank '+rank+'/5 &mdash; tap to rank up';
+          else if(treeLocked) reqText = 'Committed to '+TREES[committed].name;
+          else if(lockedByPrev) reqText = 'Requires previous skill';
+          else reqText = 'Requires Lv.'+node.reqLevel;
+          return '<div class="'+cls+'" data-tree="'+treeKey+'" data-idx="'+idx+'">'+
+            '<div class="treeNodeName">'+node.name+(rank>0?' &middot; Rank '+rank+'/5':'')+'</div>'+
+            '<div class="treeNodeDesc">'+node.desc+'</div>'+
+            '<div class="treeNodeEffect">'+nodeEffectText(node, rank)+'</div>'+
+            '<div class="treeNodeReq">'+reqText+'</div>'+
+          '</div>';
+        }).join('<div class="treeConnector"></div>');
+      }
+      return '<div class="treeCol'+(treeLocked?' treeColLocked':'')+'"><div class="treeColTitle">'+tree.name+(treeLocked?' &#128274;':'')+'</div>'+nodesHtml+'</div>';
+    }).join('');
+    treeColsEl.querySelectorAll('.treeNode.available').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const treeKey = el.dataset.tree, idx = parseInt(el.dataset.idx,10);
+        if(!canRankUp(game.player, treeKey, idx)) return;
+        const node = treesForClass(game.player.cls)[treeKey].nodes[idx];
+        game.player.skills[node.id] = (game.player.skills[node.id]||0) + 1;
+        game.player.skillPoints = Math.max(0,(game.player.skillPoints||0)-1);
+        if(node.id==='squire' && (game.scene==='dungeon' || game.scene==='forest')){
+          ensureFollowers(game);
+        }
+        updateSkillButtonsVisibility();
+        renderSkillTree();
+        saveGame();
+      });
+    });
+  }
+
+  function openSkillTree(){
+    game.modalOpen = true;
+    skillsBadge.style.display = 'none';
+    renderSkillTree();
+    skillTreeOverlay.style.display = 'flex';
+  }
+  function closeSkillTree(){
+    skillTreeOverlay.style.display = 'none';
+    game.modalOpen = false;
+  }
+  treeClose.addEventListener('click', closeSkillTree);
+  skillsBtn.addEventListener('click', ()=>{
+    if(!game || !game.started || game.over) return;
+    if(game.modalOpen) return;
+    openSkillTree();
+  });
+
+  // ---------- Game State ----------
+  let game = null;
+  // Pass a saved-progress object (from loadSavedGame()) to resume a character
+  // instead of rolling a fresh one. Loaded characters always resume in Town.
+  function newGame(saved, cls){
+    const player = {
+      cls: cls || 'warrior',
+      saveId: (saved && saved.id) || genSaveId(),
+      x:0,y:0,r:16,facing:{x:0,y:-1},
+      hp:null,maxHp:null,mp:null,maxMp:null,
+      level:1, xp:0, xpNext:40, gold:0,
+      atkCd:0, atkCdMax:0.46,
+      dodgeCd:0, dodgeCdMax:1.05,
+      dodging:false, dodgeT:0, dodgeDur:0.24, dodgeDir:{x:0,y:0},
+      blocking:false,
+      invuln:0, hitFlash:0,
+      animT:0, moving:false, faceSign:1, atkAnimT:0, castAnimT:0,
+      skillPoints:0, skills:{shieldBash:0, shieldThrow:0, guardian:0, weaponsSpecialist:0, whirlwind:0, assault:0, squire:0, commander:0, rally:0},
+      checkpointDepth:1,
+      shieldBashCd:0,
+      shieldThrowCd:0, shieldThrowCdMax:SHIELD_THROW_CD,
+      guardianCd:0, guardianCdMax:GUARDIAN_CD, guardianT:0,
+      whirlwindCd:0, whirlwindCdMax:WHIRLWIND_CD, whirlwindT:0, whirlwindTick:0,
+      assaultCd:0, assaultCdMax:ASSAULT_CD, assaultT:0, assaultDurMax:0,
+      stanceCd:0,
+      rallyCd:0, rallyCdMax:RALLY_CD, rallyT:0, rallyDurMax:0,
+      equipment:{helm:null,armor:null,amulet:null,ring1:null,ring2:null,boots:null,gloves:null,belt:null,mainhand:null,offhand:null},
+      inventory:[],
+      dmgBonus:0, rangeBonus:0, critChance:0, armor:0, speed:BASE_SPEED,
+    };
+    if(saved){
+      player.level = saved.level||1;
+      player.xp = saved.xp||0;
+      player.xpNext = saved.xpNext||40;
+      player.gold = saved.gold||0;
+      player.skillPoints = saved.skillPoints||0;
+      if(saved.skills) Object.assign(player.skills, saved.skills);
+      player.checkpointDepth = saved.checkpointDepth||1;
+      player.cls = saved.cls || 'warrior';
+    }
+    recalcStats(player);
+    if(saved && saved.equipment){
+      // restore gear directly rather than through equipItem(), which applies
+      // pickup-time gating (e.g. Weapons Specialist) that doesn't apply to
+      // gear the character already legitimately had equipped.
+      player.equipment = saved.equipment;
+      player.inventory = saved.inventory || [];
+      recalcStats(player);
+    } else if(player.cls==='ranger'){
+      // the ranger starts equipped with a basic bow, no shield needed
+      equipItem(player, generateItem(1, 'common', 'bow'));
+    } else {
+      // the warrior starts equipped with a basic sword and shield
+      equipItem(player, generateItem(1, 'common', 'weapon1h'));
+      equipItem(player, generateItem(1, 'common', 'shield'));
+    }
+    player.hp = player.maxHp; player.mp = player.maxMp;
+    return {
+      scene:'town',
+      depth:1,
+      player,
+      room:null,
+      town:null,
+      enemies:[],
+      projectiles:[],
+      loot:[],
+      particles:[],
+      portal:null,
+      chest:null,
+      shieldThrow:null,
+      followers:[], followerStance:'attack', followerRespawnCd:0,
+      portalIsBoss:false,
+      camera:{x:0,y:0},
+      msgT:0, msgText:'',
+      over:false,
+      started:false,
+      levelUpFlash:0,
+      modalOpen:false,
+    };
+  }
+
+  function genRoom(depth){
+    const size = 620 + Math.min(depth*14, 260);
+    const room = {w:size, h:size, obstacles:[]};
+    const nObs = 3 + Math.floor(Math.random()*4);
+    for(let i=0;i<nObs;i++){
+      const w=rand(40,90), h=rand(40,90);
+      const x=rand(80, size-80-w), y=rand(80,size-80-h);
+      // avoid center spawn
+      if(Math.hypot(x+w/2-size/2, y+h/2-size/2) < 90) continue;
+      room.obstacles.push({x,y,w,h});
+    }
+    return room;
+  }
+
+  // Boss floors mark the dungeon's checkpoint rhythm: every 5th floor
+  // (5, 10, 15, 20...) is guarded by a demon boss instead of a regular wave.
+  function isBossFloor(depth){ return depth % 5 === 0; }
+
+  function spawnWave(g){
+    const depth = g.depth;
+    if(isBossFloor(depth)){
+      // a handful of escorts plus the demon boss itself
+      const escorts = 2 + Math.floor(depth/10);
+      for(let i=0;i<escorts;i++) spawnEnemy(g, Math.random()<0.5 ? 'archer' : 'grunt');
+      spawnEnemy(g, 'boss');
+      showMsg('A demon boss awakens...', 1.8);
+      return;
+    }
+    const count = 3 + Math.floor(depth*1.15);
+    for(let i=0;i<count;i++){
+      let type = 'grunt';
+      const roll = Math.random();
+      if(depth>=3 && roll<0.22) type='brute';
+      else if(depth>=2 && roll<0.5) type='archer';
+      spawnEnemy(g, type);
+    }
+  }
+
+  function spawnEnemy(g, type, pos){
+    const room = g.room;
+    let x,y;
+    if(pos){
+      // a fixed spot (e.g. a Forest pack anchor) rather than a random position
+      x = clamp(pos.x, 40, room.w-40); y = clamp(pos.y, 40, room.h-40);
+    } else {
+      const minDist = type==='boss' ? 220 : 160;
+      let tries=0;
+      do{
+        x = rand(50, room.w-50); y = rand(50, room.h-50);
+        tries++;
+      } while(dist({x,y},{x:room.w/2,y:room.h/2}) < minDist && tries<20);
+    }
+    const depth = g.depth;
+    let e;
+    if(type==='grunt'){
+      e = {type,x,y,r:15,hp:22+depth*4,maxHp:22+depth*4,speed:rand(85,105),dmg:7+depth*1.6,
+           atkCd:0,atkCdMax:0.9,color:'#b4293f',state:'chase',hitT:0};
+    } else if(type==='archer'){
+      e = {type,x,y,r:13,hp:14+depth*3,maxHp:14+depth*3,speed:rand(70,85),dmg:5+depth*1.3,
+           atkCd:rand(0,1),atkCdMax:1.6,color:'#5b8cff',state:'kite',hitT:0,preferRange:190};
+    } else if(type==='boss'){
+      // demon bosses hit hard and soak a lot of damage -- a real gate on progress.
+      // Sized a clear step above a brute/bear, but not the screen-filling giant
+      // the old r:34 (plus a 1.5x draw multiplier) used to render as.
+      e = {type,x,y,r:24,hp:260+depth*30,maxHp:260+depth*30,speed:rand(52,62),dmg:16+depth*2.4,
+           atkCd:0,atkCdMax:1.0,color:'#e0433a',state:'chase',hitT:0,armor:6,isBoss:true};
+    } else if(type==='brute'){
+      // brutes have thick hide (armor) that only a Greatsword's penetration can bite through
+      e = {type,x,y,r:21,hp:55+depth*7,maxHp:55+depth*7,speed:rand(48,58),dmg:13+depth*2.2,
+           atkCd:0,atkCdMax:1.1,color:'#8a3fae',state:'chase',hitT:0,armor:10};
+    } else if(type==='wolf'){
+      // Forest: a fast, lightly-built pack hunter -- lower hp than a grunt but quicker
+      e = {type,x,y,r:14,hp:18+depth*3.5,maxHp:18+depth*3.5,speed:rand(130,155),dmg:8+depth*1.7,
+           atkCd:0,atkCdMax:0.8,color:'#8a8a92',state:'chase',hitT:0};
+    } else if(type==='spider'){
+      // Forest: skitters and keeps its distance, spitting webs that slow the player on hit
+      e = {type,x,y,r:13,hp:15+depth*3,maxHp:15+depth*3,speed:rand(75,95),dmg:6+depth*1.4,
+           atkCd:rand(0,1),atkCdMax:1.8,color:'#4a3a5a',state:'kite',hitT:0,preferRange:170};
+    } else if(type==='bear'){
+      // Forest: a brute-equivalent heavy hitter with thick hide
+      e = {type,x,y,r:22,hp:55+depth*7,maxHp:55+depth*7,speed:rand(46,56),dmg:13+depth*2.2,
+           atkCd:0,atkCdMax:1.1,color:'#6b4a2e',state:'chase',hitT:0,armor:10};
+    } else {
+      e = {type,x,y,r:21,hp:55+depth*7,maxHp:55+depth*7,speed:rand(48,58),dmg:13+depth*2.2,
+           atkCd:0,atkCdMax:1.1,color:'#8a3fae',state:'chase',hitT:0,armor:10};
+    }
+    // every enemy is 10% stronger (life & damage) than its base stat block above
+    e.hp = Math.round(e.hp*ENEMY_BUFF_MULT); e.maxHp = e.hp;
+    e.dmg = e.dmg*ENEMY_BUFF_MULT;
+    Object.assign(e, {animT:Math.random()*10, facing:{x:0,y:1}, faceSign:1, moving:false, atkAnimT:0, stunT:0,
+      // "home" spot + aggro/leash tuning -- only acted on in the Forest (see
+      // update()), so this is harmless for dungeon enemies, which always engage
+      homeX:x, homeY:y, aggroed:false, wanderTarget:null, wanderCd:rand(0,2)});
+    if(type==='wolf'){ e.aggroRange=230; e.leashRange=420; e.wanderRadius=60; }
+    else if(type==='spider'){ e.aggroRange=210; e.leashRange=380; e.wanderRadius=50; }
+    else if(type==='bear'){ e.aggroRange=190; e.leashRange=380; e.wanderRadius=45; }
+    else { e.aggroRange=200; e.leashRange=400; e.wanderRadius=50; }
+    g.enemies.push(e);
+  }
+
+  function startGame(saved, cls){
+    game = newGame(saved, cls);
+    game.scene = 'town';
+    game.town = makeTown();
+    game.room = game.town;
+    game.player.x = game.town.spawn.x; game.player.y = game.town.spawn.y;
+    game.started = true;
+    document.getElementById('start').style.display='none';
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('classSelect').style.display='none';
+    skillTreeOverlay.style.display='none';
+    invOverlay.style.display='none';
+    shopOverlay.style.display='none';
+    bagBadge.style.display='none';
+    skillsBadge.style.display='none';
+    updateSkillButtonsVisibility();
+    document.getElementById('buttons').style.display = 'none';
+    updateInteractPrompt(null);
+    showMsg(saved ? 'Welcome back' : 'Welcome to town', 1.4);
+    lastT = performance.now();
+    requestAnimationFrame(loop);
+    if(!saved) saveGame(); // establish a save right away for a brand-new character too
+  }
+
+  function enterMine(){
+    const g = game;
+    g.scene = 'dungeon';
+    g.depth = g.player.checkpointDepth || 1;
+    g.room = genRoom(g.depth);
+    g.player.x = g.room.w/2; g.player.y = g.room.h/2;
+    g.enemies = []; g.projectiles=[]; g.loot=[]; g.portal=null; g.chest=null; g.shieldThrow=null; g.portalIsBoss=false;
+    showMsg('Depth '+g.depth, 1.4);
+    spawnWave(g);
+    g.followers = [];
+    ensureFollowers(g);
+    for(const f of g.followers){ f.x = g.player.x; f.y = g.player.y; }
+    document.getElementById('buttons').style.display = 'flex';
+    updateInteractPrompt(null);
+  }
+
+  // The Forest sits between Town and the Mine -- a standing, respawning
+  // population of wolves/spiders/bears rather than a floor to clear.
+  function enterForest(){
+    const g = game;
+    g.scene = 'forest';
+    g.forest = makeForest();
+    g.room = g.forest;
+    g.depth = 1; // fixed low tier -- the Forest is a permanent early zone, not endless
+    g.player.x = g.forest.townGate.x + 120; g.player.y = g.forest.townGate.y; // clear of the edge-gate trigger radius so the "Return to Town" prompt doesn't fire immediately on entry
+    g.enemies = []; g.projectiles=[]; g.loot=[]; g.portal=null; g.chest=null; g.shieldThrow=null; g.portalIsBoss=false;
+    g.forestRespawnCd = 2;
+    showMsg('The Forest', 1.4);
+    // seed the Forest with one pack of each type -- a wolf pack, a spider
+    // pack, and a bear pack -- spread across its anchor points, rather than
+    // a random mixed assortment
+    const anchors = shuffle(g.forest.packAnchors.slice());
+    for(let i=0;i<FOREST_PACK_TEMPLATES.length && i<anchors.length;i++){
+      spawnForestPack(g, anchors[i], FOREST_PACK_TEMPLATES[i]);
+    }
+    g.followers = [];
+    ensureFollowers(g);
+    for(const f of g.followers){ f.x = g.player.x; f.y = g.player.y; }
+    document.getElementById('buttons').style.display = 'flex';
+    updateInteractPrompt(null);
+  }
+
+  function showMsg(text, dur){
+    game.msgText = text; game.msgT = dur;
+  }
+
+  function nextDepth(){
+    game.depth++;
+    game.room = genRoom(game.depth);
+    game.player.x = game.room.w/2; game.player.y = game.room.h/2;
+    game.enemies = []; game.projectiles=[]; game.loot=[]; game.portal=null; game.chest=null; game.portalIsBoss=false;
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + game.player.maxHp*0.25);
+    game.player.mp = game.player.maxMp;
+    showMsg('Depth '+game.depth, 1.4);
+    spawnWave(game);
+    ensureFollowers(game);
+    for(const f of game.followers){
+      f.x = game.player.x; f.y = game.player.y;
+      f.hp = f.maxHp = FOLLOWER_BASE_HP + FOLLOWER_HP_PER_LEVEL*game.player.level;
+      f.holdPos = null;
+    }
+  }
+
+  function gainXp(g, amt){
+    const p = g.player;
+    p.xp += amt;
+    let leveled = false;
+    while(p.xp >= p.xpNext){
+      p.xp -= p.xpNext;
+      p.level++;
+      p.xpNext = Math.floor(40 * Math.pow(1.22, p.level-1));
+      p.skillPoints = (p.skillPoints||0) + 1;
+      recalcStats(p);
+      g.levelUpFlash = 0.8;
+      showMsg('Level '+p.level+'!', 1.2);
+      leveled = true;
+    }
+    if(leveled){
+      skillsBadge.style.display = 'flex';
+      saveGame();
+    }
+  }
+
+  function dropLoot(g, x, y, enemyType){
+    if(enemyType==='boss'){
+      // a demon boss always drops a hefty pile of gold and a guaranteed good item
+      g.loot.push({type:'gold', x, y, r:9, amt:Math.ceil(rand(20,35)+g.depth*2)});
+      const item = generateItem(g.depth, Math.random()<0.5 ? 'rare' : 'magic');
+      g.loot.push({type:'item', x:x+rand(-12,12), y:y+rand(-12,12), r:8, item});
+      return;
+    }
+    // loot drop rates trimmed down overall, so a kill more often yields nothing at all
+    const r = Math.random();
+    if(r<0.16){ g.loot.push({type:'potion', x, y, r:9}); }
+    else if(r<0.38){ g.loot.push({type:'gold', x, y, r:7, amt:Math.ceil(rand(3,9)+g.depth)}); }
+    if((enemyType==='brute' || enemyType==='bear') && Math.random()<0.2){
+      const item = generateItem(g.depth);
+      g.loot.push({type:'item', x:x+rand(-10,10), y:y+rand(-10,10), r:8, item});
+    }
+  }
+
+  function playerDamage(g, amt, srcEnemy){
+    const p=g.player;
+    if(p.invuln>0 || p.dodging || p.guardianT>0) return;
+    if(p.blocking && Math.random()<0.70){
+      showMsg('Blocked!', 0.5);
+      g.particles.push({type:'burst', x:p.x, y:p.y, t:0.25, max:0.25, color:'#cdd8e6'});
+      return;
+    }
+    // Assault (Berserker skill): damage taken also ramps up over the duration
+    let takenMult = 1;
+    if(p.assaultT>0){
+      const durMax = p.assaultDurMax||1;
+      const frac = clamp(1 - p.assaultT/durMax, 0, 1);
+      takenMult = 1 + ASSAULT_TAKEN_MAX*frac;
+    }
+    const reduced = Math.max(1, Math.round((amt - (p.armor||0)) * takenMult));
+    p.hp -= reduced;
+    p.hitFlash = 0.25;
+    // ...and every point of damage taken is reflected straight back onto the attacker.
+    if(p.assaultT>0 && srcEnemy){
+      srcEnemy.hp -= reduced;
+      srcEnemy.hitT = 0.15;
+      g.particles.push({type:'burst', x:srcEnemy.x, y:srcEnemy.y, t:0.25, max:0.25, color:'#e2382f'});
+    }
+    if(p.hp<=0){ p.hp=0; endGame(g); }
+  }
+
+  function endGame(g){
+    g.over = true;
+    if(g.depth>best){ best=g.depth; try{localStorage.setItem('dc_best', String(best));}catch(e){} }
+    document.getElementById('deadDepth').textContent = g.depth;
+    document.getElementById('deadLevel').textContent = g.player.level;
+    document.getElementById('deadGold').textContent = g.player.gold;
+    document.getElementById('deadBest').textContent = 'Best depth: '+best;
+    document.getElementById('overlay').style.display='flex';
+  }
+
+  // Shared "head back to Town" logic. Dying wipes gold (returnToTown); choosing
+  // it voluntarily from a cleared level's portal keeps everything (goToTownSafe).
+  function goToTown(opts){
+    opts = opts || {};
+    const g = game, p = g.player;
+    g.over = false;
+    g.scene = 'town';
+    g.town = makeTown();
+    g.room = g.town;
+    if(opts.wipeGold) p.gold = 0;
+    p.hp = p.maxHp; p.mp = p.maxMp;
+    p.x = g.town.spawn.x; p.y = g.town.spawn.y;
+    p.dodging = false; p.dodgeT = 0; p.invuln = 0; p.hitFlash = 0;
+    p.blocking = false; p.guardianT = 0;
+    p.whirlwindT = 0; p.whirlwindCd = 0; p.assaultT = 0; p.assaultCd = 0;
+    p.rallyT = 0; p.rallyCd = 0;
+    g.enemies = []; g.projectiles=[]; g.loot=[]; g.portal=null; g.chest=null; g.shieldThrow=null; g.portalIsBoss=false;
+    g.followers = [];
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('buttons').style.display = 'none';
+    updateInteractPrompt(null);
+    updatePortalChoice(false);
+    showMsg('Back in town', 1.4);
+    saveGame();
+  }
+  // Death sends you back to Town with your level and gear intact -- only
+  // your gold is wiped. This is the only death/respawn path now; a truly
+  // fresh character is only created from the class-select screen.
+  function returnToTown(){ goToTown({wipeGold:true}); }
+  // Voluntarily heading back to Town from a cleared level's portal keeps
+  // everything, gold included.
+  function goToTownSafe(){ goToTown({wipeGold:false}); }
+
+  // ---------- Update ----------
+  let lastT = 0;
+  function loop(t){
+    const dt = Math.min((t-lastT)/1000, 0.05);
+    lastT = t;
+    if(game && game.started && !game.over){
+      update(dt);
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function nearestEnemy(g, from, maxD){
+    let best=null, bd=maxD||99999;
+    for(const e of g.enemies){
+      const d=dist(from,e);
+      if(d<bd){ bd=d; best=e; }
+    }
+    return best;
+  }
+
+  function updateTown(dt){
+    const g = game, p = g.player, room = g.room;
+    if(g.modalOpen) return;
+    p.animT += dt;
+    if(p.hitFlash>0) p.hitFlash-=dt;
+    if(p.atkAnimT>0) p.atkAnimT-=dt;
+    if(g.msgT>0) g.msgT-=dt;
+    g.clock = (g.clock||0) + dt;
+
+    const mv = screenDirToWorld(joyVec.x, joyVec.y);
+    if(mv.x!==0||mv.y!==0){
+      p.x += mv.x*p.speed*dt;
+      p.y += mv.y*p.speed*dt;
+      const md=Math.hypot(mv.x,mv.y)||1;
+      p.facing = {x:mv.x/md, y:mv.y/md};
+      p.faceSign = screenFacingSign(p.facing.x,p.facing.y);
+      p.moving = true;
+    } else {
+      p.moving = false;
+    }
+    p.x = clamp(p.x, p.r, room.w-p.r);
+    p.y = clamp(p.y, p.r, room.h-p.r);
+    for(const o of room.obstacles) pushOutOfRect(p,o);
+
+    const nearShop = dist(p, g.town.blacksmith) < g.town.blacksmith.r + p.r + 26;
+    const nearGate = dist(p, g.town.gate) < g.town.gate.r + p.r + 22;
+    const hasMinePortal = p.checkpointDepth > 1;
+    const nearMinePortal = hasMinePortal && dist(p, g.town.minePortal) < g.town.minePortal.r + p.r + 20;
+    updateInteractPrompt(nearShop ? 'shop' : nearMinePortal ? 'toMine' : nearGate ? 'toForest' : null);
+
+    const pIso = toIso(p.x, p.y);
+    g.camera.x = pIso.x - W/2;
+    g.camera.y = pIso.y - H/2 + 40;
+
+    document.getElementById('hpfill').style.width = clamp(p.hp/p.maxHp*100,0,100)+'%';
+    document.getElementById('xpfill').style.width = clamp(p.xp/p.xpNext*100,0,100)+'%';
+    document.getElementById('depthNum').textContent = '-';
+    document.getElementById('lvlText').textContent = 'Lv.'+p.level;
+    document.getElementById('goldNum').textContent = p.gold;
+  }
+
+  function update(dt){
+    const g = game, p = g.player, room = g.room;
+    if(g.scene==='town'){ updateTown(dt); return; }
+    if(g.modalOpen) return; // frozen while a menu (skill pick / inventory) is open
+
+    if(p.atkCd>0) p.atkCd-=dt;
+    if(p.dodgeCd>0) p.dodgeCd-=dt;
+    if(p.shieldBashCd>0) p.shieldBashCd-=dt;
+    if(p.shieldThrowCd>0) p.shieldThrowCd-=dt;
+    if(p.guardianCd>0) p.guardianCd-=dt;
+    if(p.guardianT>0) p.guardianT-=dt;
+    if(p.whirlwindCd>0) p.whirlwindCd-=dt;
+    if(p.assaultCd>0) p.assaultCd-=dt;
+    if(p.assaultT>0){ p.assaultT-=dt; if(p.assaultT<0) p.assaultT=0; }
+    p.blocking = blockHeld && !!(p.equipment.offhand && p.equipment.offhand.slotType==='shield') && !p.dodging;
+    if(p.invuln>0) p.invuln-=dt;
+    if(p.hitFlash>0) p.hitFlash-=dt;
+    if(p.atkAnimT>0) p.atkAnimT-=dt;
+    if(p.castAnimT>0) p.castAnimT-=dt;
+    if(p.webSlowT>0){ p.webSlowT-=dt; if(p.webSlowT<0) p.webSlowT=0; }
+    if(g.levelUpFlash>0) g.levelUpFlash-=dt;
+    if(g.msgT>0) g.msgT-=dt;
+    p.animT += dt;
+    g.clock = (g.clock||0) + dt;
+
+    // dodge
+    if(wantDodge && p.dodgeCd<=0 && !p.dodging){
+      const wd0 = screenDirToWorld(joyVec.x, joyVec.y);
+      let dx=wd0.x, dy=wd0.y;
+      if(dx===0&&dy===0){ dx=p.facing.x; dy=p.facing.y; }
+      const d=Math.hypot(dx,dy)||1;
+      p.dodgeDir = {x:dx/d, y:dy/d};
+      p.dodging = true; p.dodgeT = p.dodgeDur;
+      p.dodgeCd = p.dodgeCdMax;
+      p.invuln = p.dodgeDur + 0.05;
+    }
+    wantDodge=false;
+
+    if(p.dodging){
+      p.dodgeT -= dt;
+      const spd = p.speed*3.1;
+      p.x += p.dodgeDir.x*spd*dt;
+      p.y += p.dodgeDir.y*spd*dt;
+      p.moving = true;
+      if(p.dodgeT<=0) p.dodging=false;
+    } else {
+      const mv = screenDirToWorld(joyVec.x, joyVec.y);
+      if(mv.x!==0||mv.y!==0){
+        const webMult = p.webSlowT>0 ? 0.45 : 1;
+        p.x += mv.x*p.speed*webMult*dt;
+        p.y += mv.y*p.speed*webMult*dt;
+        const md=Math.hypot(mv.x,mv.y)||1;
+        p.facing = {x:mv.x/md, y:mv.y/md};
+        p.faceSign = screenFacingSign(p.facing.x,p.facing.y);
+        p.moving = true;
+      } else {
+        p.moving = false;
+      }
+    }
+    p.x = clamp(p.x, p.r, room.w-p.r);
+    p.y = clamp(p.y, p.r, room.h-p.r);
+    for(const o of room.obstacles) pushOutOfRect(p,o);
+
+    // attack
+    const isBow = !!(p.equipment.mainhand && p.equipment.mainhand.slotType==='bow');
+    if(wantAttack && p.atkCd<=0){
+      p.atkCd = p.atkCdMax;
+      const reach = 62 + (p.rangeBonus||0);
+      const target = nearestEnemy(g, p, isBow ? BOW_RANGE+(p.rangeBonus||0) : 70+(p.rangeBonus||0));
+      let ang;
+      if(target){ ang = Math.atan2(target.y-p.y, target.x-p.x); }
+      else { ang = Math.atan2(p.facing.y,p.facing.x); }
+      p.facing = {x:Math.cos(ang), y:Math.sin(ang)};
+      p.faceSign = screenFacingSign(p.facing.x, p.facing.y);
+      p.atkAnimT = 0.22;
+      let dmg = 12 + p.level*2.2 + (p.dmgBonus||0);
+      const isCrit = Math.random()*100 < (p.critChance||0);
+      if(isCrit) dmg *= 1.8;
+      dmg *= assaultDealtMult(p) * weaponDmgMult(p);
+      if(isBow){
+        // Ranger basic attack: fire an arrow instead of swinging a melee arc
+        g.projectiles.push({x:p.x, y:p.y, vx:Math.cos(ang)*BOW_ARROW_SPEED, vy:Math.sin(ang)*BOW_ARROW_SPEED,
+          r:5, dmg, from:'player', life:1.4, color:'#e8c44a', isArrow:true, crit:isCrit});
+      } else {
+        for(const e of g.enemies){
+          const d = dist(p,e);
+          if(d < reach+e.r){
+            const eang = Math.atan2(e.y-p.y, e.x-p.x);
+            let diff = Math.abs(eang-ang);
+            if(diff>Math.PI) diff = 2*Math.PI-diff;
+            if(diff < 0.95){
+              e.hp -= applyEnemyArmor(p, e, dmg); e.hitT = 0.15;
+              const kb=8; e.x += Math.cos(eang)*kb; e.y += Math.sin(eang)*kb;
+            }
+          }
+        }
+        const slashDist = 36+(p.rangeBonus||0)*0.3;
+        g.particles.push({type:'slash', x:p.x+Math.cos(ang)*slashDist, y:p.y+Math.sin(ang)*slashDist, ang, t:0.16, max:0.16, crit:isCrit});
+      }
+    }
+    wantAttack=false;
+
+    // shield bash (Defender skill): first press of Block strikes like a Strike attack,
+    // aimed the same directional way -- not a full-circle AoE.
+    if(wantShieldBash){
+      wantShieldBash=false;
+      const hasShield = !!(p.equipment.offhand && p.equipment.offhand.slotType==='shield');
+      const bashRank = p.skills.shieldBash||0;
+      if(hasShield && bashRank>0 && !p.dodging && p.shieldBashCd<=0){
+        const mult = skillMult(bashRank);
+        p.shieldBashCd = p.atkCdMax / mult;
+        const reach = 62 + (p.rangeBonus||0);
+        const target = nearestEnemy(g, p, 70+(p.rangeBonus||0));
+        const ang = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(p.facing.y,p.facing.x);
+        p.facing = {x:Math.cos(ang), y:Math.sin(ang)};
+        p.faceSign = screenFacingSign(p.facing.x, p.facing.y);
+        p.atkAnimT = 0.22;
+        const baseDmg = 12 + p.level*2.2 + (p.dmgBonus||0);
+        const dmg = baseDmg * mult * assaultDealtMult(p);
+        for(const e of g.enemies){
+          const d = dist(p,e);
+          if(d < reach+e.r){
+            const eang = Math.atan2(e.y-p.y, e.x-p.x);
+            let diff = Math.abs(eang-ang);
+            if(diff>Math.PI) diff = 2*Math.PI-diff;
+            if(diff < 0.95){
+              e.hp -= applyEnemyArmor(p, e, dmg); e.hitT = 0.15;
+              const kb=10; e.x += Math.cos(eang)*kb; e.y += Math.sin(eang)*kb;
+            }
+          }
+        }
+        const slashDist = 36+(p.rangeBonus||0)*0.3;
+        g.particles.push({type:'slash', x:p.x+Math.cos(ang)*slashDist, y:p.y+Math.sin(ang)*slashDist, ang, t:0.16, max:0.16, crit:false, color:'#cdd8e6'});
+      }
+    }
+
+    // shield throw (Defender skill): thrown shield damages+stuns then returns
+    if(wantThrow){
+      wantThrow=false;
+      const hasShield = !!(p.equipment.offhand && p.equipment.offhand.slotType==='shield');
+      const throwRank = p.skills.shieldThrow||0;
+      if(throwRank>0 && hasShield && p.shieldThrowCd<=0 && !g.shieldThrow){
+        const mult = skillMult(throwRank);
+        const stunDur = 1 + 0.25*(throwRank-1);
+        const target = nearestEnemy(g, p, SHIELD_THROW_RANGE);
+        const ang = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(p.facing.y,p.facing.x);
+        const speed = 640;
+        g.shieldThrow = {
+          x:p.x, y:p.y, vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed, r:12,
+          phase:'out', dist:0, maxDist:SHIELD_THROW_RANGE, hasHit:false,
+          dmg: (14 + p.level*2 + (p.dmgBonus||0)*0.5) * mult * assaultDealtMult(p),
+          stunDur,
+        };
+        p.shieldThrowCdMax = SHIELD_THROW_CD / mult;
+        p.shieldThrowCd = p.shieldThrowCdMax;
+      }
+    }
+    if(g.shieldThrow){
+      const st = g.shieldThrow;
+      if(st.phase==='out'){
+        const stepX=st.vx*dt, stepY=st.vy*dt;
+        st.x+=stepX; st.y+=stepY; st.dist += Math.hypot(stepX,stepY);
+        if(!st.hasHit){
+          for(const e of g.enemies){
+            if(dist(st,e) < st.r+e.r){
+              e.hp -= applyEnemyArmor(p, e, st.dmg); e.hitT = 0.15; e.stunT = st.stunDur;
+              st.hasHit = true;
+              g.particles.push({type:'burst', x:e.x, y:e.y, t:0.3, max:0.3, color:'#cdd8e6'});
+              break;
+            }
+          }
+        }
+        if(st.hasHit || st.dist>=st.maxDist) st.phase='returning';
+      } else {
+        const ang = Math.atan2(p.y-st.y, p.x-st.x);
+        st.x += Math.cos(ang)*780*dt; st.y += Math.sin(ang)*780*dt;
+        if(dist(st,p) < 20) g.shieldThrow = null;
+      }
+    }
+
+    // guardian (Defender skill): brief total damage immunity with a golden glow.
+    // Ranks only extend the immunity duration; cooldown stays fixed.
+    if(wantGuardian){
+      wantGuardian=false;
+      const gRank = p.skills.guardian||0;
+      if(gRank>0 && p.guardianCd<=0){
+        p.guardianT = GUARDIAN_DUR * skillMult(gRank);
+        p.guardianCd = p.guardianCdMax;
+        showMsg('Guardian!', 0.8);
+        g.particles.push({type:'burst', x:p.x, y:p.y, t:0.5, max:0.5, color:'#f0d078'});
+      }
+    }
+
+    // whirlwind (Berserker skill): tap to spin in place, striking everything
+    // nearby on a fast repeating tick. Ranks only extend the spin duration.
+    if(wantWhirlwind){
+      wantWhirlwind=false;
+      const wRank = p.skills.whirlwind||0;
+      if(wRank>0 && p.whirlwindCd<=0 && p.whirlwindT<=0){
+        p.whirlwindT = WHIRLWIND_BASE_DUR + WHIRLWIND_RANK_STEP*(wRank-1);
+        p.whirlwindTick = 0;
+        p.whirlwindCd = p.whirlwindCdMax;
+        showMsg('Whirlwind!', 0.6);
+      }
+    }
+    if(p.whirlwindT>0){
+      p.whirlwindT -= dt;
+      p.whirlwindTick -= dt;
+      if(p.whirlwindTick<=0){
+        p.whirlwindTick += WHIRLWIND_TICK_INTERVAL;
+        const reach = 58 + (p.rangeBonus||0);
+        const tickDmg = (9 + p.level*1.5 + (p.dmgBonus||0)*0.55) * assaultDealtMult(p) * weaponDmgMult(p);
+        for(const e of g.enemies){
+          if(dist(p,e) < reach+e.r){
+            e.hp -= applyEnemyArmor(p, e, tickDmg); e.hitT = 0.15;
+            const eang = Math.atan2(e.y-p.y, e.x-p.x), kb=6;
+            e.x += Math.cos(eang)*kb; e.y += Math.sin(eang)*kb;
+          }
+        }
+        g.particles.push({type:'ring', x:p.x, y:p.y, t:0.3, max:0.3, r:reach, color:'#e2703a'});
+      }
+      if(p.whirlwindT<0) p.whirlwindT = 0;
+    }
+
+    // assault (Berserker skill): glowing rage -- damage dealt AND taken both
+    // climb over the duration, and damage you take is reflected onto the attacker.
+    if(wantAssault){
+      wantAssault=false;
+      const aRank = p.skills.assault||0;
+      if(aRank>0 && p.assaultCd<=0 && p.assaultT<=0){
+        p.assaultDurMax = ASSAULT_BASE_DUR + ASSAULT_RANK_STEP*(aRank-1);
+        p.assaultT = p.assaultDurMax;
+        p.assaultCd = p.assaultCdMax;
+        showMsg('Assault!', 0.8);
+        g.particles.push({type:'burst', x:p.x, y:p.y, t:0.5, max:0.5, color:'#e2382f'});
+      }
+    }
+
+    // stance cycling (Knight skill: Commander) -- cycles all followers between
+    // Attack, Defend and Hold Position. A short cooldown stops spam-toggling.
+    if(p.stanceCd>0) p.stanceCd -= dt;
+    if(wantStance){
+      wantStance=false;
+      if((p.skills.commander||0)>0 && p.stanceCd<=0){
+        const curIdx = STANCES.indexOf(g.followerStance);
+        g.followerStance = STANCES[(curIdx+1)%STANCES.length];
+        const stanceLabel = {attack:'Attack', defend:'Defend', hold:'Hold Position'}[g.followerStance];
+        for(const f of g.followers){ f.stance = g.followerStance; f.holdPos = null; }
+        p.stanceCd = 0.5;
+        showMsg('Stance: '+stanceLabel, 0.8);
+        updateStanceButtonLabel();
+      }
+    }
+
+    // Rally (Knight capstone): war cry that snaps followers back to the Knight,
+    // stuns nearby enemies with a shield-slam, heals followers, and grants them
+    // bonus crit chance for a short window. Everything scales with rank.
+    if(p.rallyCd>0) p.rallyCd -= dt;
+    if(p.rallyT>0){ p.rallyT -= dt; if(p.rallyT<0) p.rallyT=0; }
+    if(wantRally){
+      wantRally=false;
+      const rRank = p.skills.rally||0;
+      if(rRank>0 && p.rallyCd<=0){
+        p.rallyCd = p.rallyCdMax;
+        const stunDur = RALLY_STUN_BASE + RALLY_STUN_RANK_STEP*(rRank-1);
+        const healPct = RALLY_HEAL_PCT_BASE + RALLY_HEAL_PCT_RANK_STEP*(rRank-1);
+        p.rallyDurMax = RALLY_BUFF_BASE_DUR + RALLY_BUFF_RANK_STEP*(rRank-1);
+        p.rallyT = p.rallyDurMax;
+        for(const f of g.followers){
+          f.x = p.x; f.y = p.y;
+          f.hp = Math.min(f.maxHp, f.hp + f.maxHp*healPct);
+          f.holdPos = f.stance==='hold' ? {x:p.x,y:p.y} : f.holdPos;
+        }
+        for(const e of g.enemies){
+          if(dist(p,e) < RALLY_RANGE+e.r) e.stunT = Math.max(e.stunT||0, stunDur);
+        }
+        showMsg('Rally!', 1.0);
+        g.particles.push({type:'ring', x:p.x, y:p.y, t:0.4, max:0.4, r:RALLY_RANGE, color:'#e8c44a'});
+        g.particles.push({type:'burst', x:p.x, y:p.y, t:0.5, max:0.5, color:'#e8c44a'});
+      }
+    }
+
+    // enemies
+    for(const e of g.enemies){
+      e.animT += dt;
+      if(e.hitT>0) e.hitT-=dt;
+      if(e.atkCd>0) e.atkCd-=dt;
+      if(e.atkAnimT>0) e.atkAnimT-=dt;
+      if(e.stunT>0){ e.stunT-=dt; e.moving=false; continue; }
+      // Forest packs hold their ground until the player wanders close, rather
+      // than beelining in on sight the way dungeon enemies do -- and give up
+      // the chase (going back to idle) if it strays too far from its pack spot.
+      if(g.scene==='forest'){
+        if(!e.aggroed){
+          if(dist(e,p) < (e.aggroRange||220)){
+            e.aggroed = true;
+          } else {
+            e.wanderCd = (e.wanderCd||0) - dt;
+            if(!e.wanderTarget || e.wanderCd<=0){
+              const r = e.wanderRadius||55;
+              e.wanderTarget = {x:e.homeX+rand(-r,r), y:e.homeY+rand(-r,r)};
+              e.wanderCd = rand(2.5,5);
+            }
+            const wd = dist(e, e.wanderTarget);
+            e.moving = false;
+            if(wd>6){
+              const ang = Math.atan2(e.wanderTarget.y-e.y, e.wanderTarget.x-e.x);
+              e.x += Math.cos(ang)*e.speed*0.35*dt; e.y += Math.sin(ang)*e.speed*0.35*dt;
+              e.facing = {x:Math.cos(ang), y:Math.sin(ang)};
+              e.faceSign = screenFacingSign(e.facing.x, e.facing.y);
+              e.moving = true;
+            }
+            e.x = clamp(e.x, e.r, room.w-e.r);
+            e.y = clamp(e.y, e.r, room.h-e.r);
+            for(const o of room.obstacles) pushOutOfRect(e,o);
+            continue;
+          }
+        } else if(dist(e,{x:e.homeX,y:e.homeY}) > (e.leashRange||400)){
+          e.aggroed = false;
+          e.wanderTarget = null;
+        }
+      }
+      const target = pickEnemyTarget(g, e); // a taunting follower, or the player
+      const isFollowerTarget = target !== p;
+      const d = dist(e,target);
+      const fAng = Math.atan2(target.y-e.y, target.x-e.x);
+      e.facing = {x:Math.cos(fAng), y:Math.sin(fAng)};
+      e.faceSign = screenFacingSign(e.facing.x, e.facing.y);
+      e.moving = false;
+      if(e.type==='archer' || e.type==='spider'){
+        if(d < e.preferRange-20){
+          const ang=Math.atan2(e.y-target.y,e.x-target.x);
+          e.x += Math.cos(ang)*e.speed*dt; e.y += Math.sin(ang)*e.speed*dt;
+          e.moving = true;
+        } else if(d > e.preferRange+20){
+          const ang=Math.atan2(target.y-e.y,target.x-e.x);
+          e.x += Math.cos(ang)*e.speed*dt; e.y += Math.sin(ang)*e.speed*dt;
+          e.moving = true;
+        }
+        if(d < 420 && e.atkCd<=0){
+          e.atkCd = e.atkCdMax;
+          e.atkAnimT = 0.22;
+          const ang=Math.atan2(target.y-e.y,target.x-e.x);
+          if(e.type==='spider'){
+            // a slow-moving web bolt that slows whatever it hits, instead of an arrow
+            g.projectiles.push({x:e.x,y:e.y,vx:Math.cos(ang)*190,vy:Math.sin(ang)*190,r:7,dmg:e.dmg,from:'enemy',life:2.2,color:'#8fd05a',srcEnemy:e,targetRef:target,isWeb:true});
+          } else {
+            g.projectiles.push({x:e.x,y:e.y,vx:Math.cos(ang)*260,vy:Math.sin(ang)*260,r:6,dmg:e.dmg,from:'enemy',life:2,color:'#ff8f6a',srcEnemy:e,targetRef:target});
+          }
+        }
+      } else {
+        if(d>e.r+target.r+2){
+          const ang=Math.atan2(target.y-e.y,target.x-e.x);
+          e.x += Math.cos(ang)*e.speed*dt; e.y += Math.sin(ang)*e.speed*dt;
+          e.moving = true;
+        } else if(e.atkCd<=0){
+          e.atkCd = e.atkCdMax;
+          e.atkAnimT = 0.25;
+          if(isFollowerTarget) applyFollowerDamage(g, target, e.dmg, e);
+          else playerDamage(g, e.dmg, e);
+        }
+      }
+      e.x = clamp(e.x, e.r, room.w-e.r);
+      e.y = clamp(e.y, e.r, room.h-e.r);
+      for(const o of room.obstacles) pushOutOfRect(e,o);
+    }
+
+    // followers (Knight tree): seek nearby enemies, attack on cooldown, obey stance.
+    if(g.followers && g.followers.length){
+      for(const f of g.followers){
+        if(f.hitT>0) f.hitT-=dt;
+        if(f.atkCd>0) f.atkCd-=dt;
+        if(f.chargeCd>0) f.chargeCd-=dt;
+        f.animT += dt;
+        const cmdRank = p.skills.commander||0;
+        f.taunting = (f.stance==='defend' && cmdRank>=MAX_SKILL_RANK);
+        // find nearest enemy within aggro range of the PLAYER (not of the follower itself)
+        let nearest=null, nearestD=Infinity;
+        for(const e of g.enemies){
+          const dp = dist(e,p);
+          if(dp > FOLLOWER_AGGRO_RANGE) continue;
+          const de = dist(e,f);
+          if(de < nearestD){ nearestD = de; nearest = e; }
+        }
+        let moved = false;
+        if(nearest){
+          if(f.stance==='hold'){
+            if(!f.holdPos) f.holdPos = {x:f.x, y:f.y};
+            const leash = 70;
+            const distFromHome = dist(f, f.holdPos);
+            if(nearestD > FOLLOWER_ATK_REACH && distFromHome < leash){
+              const ang = Math.atan2(nearest.y-f.y, nearest.x-f.x);
+              f.x += Math.cos(ang)*BASE_SPEED*0.9*dt; f.y += Math.sin(ang)*BASE_SPEED*0.9*dt;
+              moved = true;
+            } else if(distFromHome > 2){
+              const ang = Math.atan2(f.holdPos.y-f.y, f.holdPos.x-f.x);
+              f.x += Math.cos(ang)*BASE_SPEED*0.9*dt; f.y += Math.sin(ang)*BASE_SPEED*0.9*dt;
+              moved = true;
+            }
+          } else if(nearestD > FOLLOWER_ATK_REACH){
+            const ang = Math.atan2(nearest.y-f.y, nearest.x-f.x);
+            f.x += Math.cos(ang)*BASE_SPEED*0.95*dt; f.y += Math.sin(ang)*BASE_SPEED*0.95*dt;
+            moved = true;
+          }
+          const fAng2 = Math.atan2(nearest.y-f.y, nearest.x-f.x);
+          f.facing = {x:Math.cos(fAng2), y:Math.sin(fAng2)};
+          f.faceSign = screenFacingSign(f.facing.x, f.facing.y);
+          if(nearestD <= FOLLOWER_ATK_REACH+nearest.r && f.atkCd<=0){
+            f.atkCd = FOLLOWER_ATK_CD;
+            f.animT = 0;
+            const dmg = Math.max(1, followerDmg(p, f) - (nearest.armor||0));
+            nearest.hp -= dmg; nearest.hitT = 0.15;
+            // Rank 5 Attack stance: automatic charge attacks for bonus damage
+            if(f.stance==='attack' && cmdRank>=MAX_SKILL_RANK && f.chargeCd<=0){
+              nearest.hp -= dmg*(FOLLOWER_CHARGE_DMG_MULT-1);
+              f.chargeCd = FOLLOWER_CHARGE_CD;
+              g.particles.push({type:'burst', x:f.x, y:f.y, t:0.3, max:0.3, color:'#5b8cff'});
+            }
+          }
+        } else if(f.stance!=='hold'){
+          // no target: drift back to a home spot behind the player
+          const homeAng = f.idx===0 ? -0.9 : 0.9;
+          const hx = p.x + Math.cos((Math.atan2(p.facing.y,p.facing.x))+Math.PI+homeAng)*FOLLOWER_FOLLOW_DIST;
+          const hy = p.y + Math.sin((Math.atan2(p.facing.y,p.facing.x))+Math.PI+homeAng)*FOLLOWER_FOLLOW_DIST;
+          const dh = Math.hypot(hx-f.x, hy-f.y);
+          if(dh > 8){
+            const ang = Math.atan2(hy-f.y, hx-f.x);
+            f.x += Math.cos(ang)*BASE_SPEED*dt; f.y += Math.sin(ang)*BASE_SPEED*dt;
+            moved = true;
+          }
+        } else {
+          f.holdPos = f.holdPos || {x:f.x, y:f.y};
+        }
+        f.moving = moved;
+        f.x = clamp(f.x, f.r, room.w-f.r);
+        f.y = clamp(f.y, f.r, room.h-f.r);
+        for(const o of room.obstacles) pushOutOfRect(f,o);
+      }
+    }
+
+    // A fallen follower rejoins on its own after FOLLOWER_RESPAWN_TIME, so Squire
+    // Rank 5 always works back up to 2 followers mid-level instead of staying
+    // down a minion until the level is cleared.
+    {
+      const squireRank = p.skills.squire||0;
+      const wantedFollowers = squireRank<=0 ? 0 : (squireRank>=MAX_SKILL_RANK ? 2 : 1);
+      if(g.followers.length < wantedFollowers){
+        if(g.followerRespawnCd>0) g.followerRespawnCd -= dt;
+        else {
+          const nf = makeFollower(p, g.followers.length);
+          nf.x = p.x; nf.y = p.y;
+          g.followers.push(nf);
+          if(g.followers.length < wantedFollowers) g.followerRespawnCd = FOLLOWER_RESPAWN_TIME;
+        }
+      } else {
+        g.followerRespawnCd = 0;
+      }
+    }
+
+    // enemy separation (light)
+    for(let i=0;i<g.enemies.length;i++){
+      for(let j=i+1;j<g.enemies.length;j++){
+        const a=g.enemies[i], b=g.enemies[j];
+        const d=dist(a,b), min=a.r+b.r;
+        if(d<min && d>0.01){
+          const push=(min-d)/2, ang=Math.atan2(b.y-a.y,b.x-a.x);
+          a.x-=Math.cos(ang)*push; a.y-=Math.sin(ang)*push;
+          b.x+=Math.cos(ang)*push; b.y+=Math.sin(ang)*push;
+        }
+      }
+    }
+
+    // remove dead
+    for(let i=g.enemies.length-1;i>=0;i--){
+      if(g.enemies[i].hp<=0){
+        dropLoot(g, g.enemies[i].x, g.enemies[i].y, g.enemies[i].type);
+        gainXp(g, g.enemies[i].isBoss ? 60+Math.floor(g.depth*4) : 8+Math.floor(g.depth*1.5));
+        g.particles.push({type:'burst', x:g.enemies[i].x, y:g.enemies[i].y, t:0.3, max:0.3, color:g.enemies[i].color});
+        g.enemies.splice(i,1);
+      }
+    }
+
+    // projectiles
+    for(let i=g.projectiles.length-1;i>=0;i--){
+      const pr = g.projectiles[i];
+      pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+      let dead = pr.life<=0 || pr.x<0||pr.y<0||pr.x>room.w||pr.y>room.h;
+      for(const o of room.obstacles){
+        if(circleRectCollide(pr.x,pr.y,pr.r,o.x,o.y,o.w,o.h)){ dead=true; break; }
+      }
+      if(!dead){
+        if(pr.from==='player'){
+          for(const e of g.enemies){
+            if(dist(pr,e) < pr.r+e.r){
+              e.hp-=applyEnemyArmor(p, e, pr.dmg); e.hitT=0.15; dead=true;
+              g.particles.push({type:'burst', x:e.x, y:e.y, t:0.22, max:0.22, color:pr.crit?'#ffe27a':'#e8c44a'});
+              break;
+            }
+          }
+        } else {
+          const tgt = pr.targetRef || p;
+          if(dist(pr,tgt) < pr.r+tgt.r){
+            if(tgt===p){
+              playerDamage(g,pr.dmg,pr.srcEnemy);
+              if(pr.isWeb) p.webSlowT = 1.6; // webbed: movement speed cut for a moment
+            }
+            else applyFollowerDamage(g, tgt, pr.dmg, pr.srcEnemy);
+            dead=true;
+          }
+        }
+      }
+      if(dead) g.projectiles.splice(i,1);
+    }
+
+    // loot pickup
+    for(let i=g.loot.length-1;i>=0;i--){
+      const l = g.loot[i];
+      if(dist(l,p) < l.r+p.r+6){
+        if(l.type==='potion'){ p.hp = Math.min(p.maxHp, p.hp+p.maxHp*0.3); showMsg('+Health', 0.6); }
+        else if(l.type==='gold'){ p.gold += l.amt; }
+        else if(l.type==='item'){ p.inventory.push(l.item); showMsg(l.item.name, 1.5); bagPulse(); }
+        g.loot.splice(i,1);
+      }
+    }
+
+    // particles
+    for(let i=g.particles.length-1;i>=0;i--){
+      g.particles[i].t-=dt;
+      if(g.particles[i].t<=0) g.particles.splice(i,1);
+    }
+
+    if(g.scene==='forest'){
+      // Forest: not floor-based, so no portal/chest -- instead a standing population
+      // of monsters that respawns over time, and two fixed gates (back to Town,
+      // onward to the Mine) you walk up to and interact with.
+      updatePortalChoice(false);
+      const nearTownGate = dist(p, g.forest.townGate) < g.forest.townGate.r + p.r + 22;
+      const nearMineGate = dist(p, g.forest.mineGate) < g.forest.mineGate.r + p.r + 22;
+      updateInteractPrompt(nearTownGate ? 'toTown' : nearMineGate ? 'toMine' : null);
+      const FOREST_POP = 14; // higher population target since packs are spread across a much bigger map
+      if(g.enemies.length < FOREST_POP && g.forest.packAnchors.length){
+        if(g.forestRespawnCd>0) g.forestRespawnCd -= dt;
+        else {
+          // respawn a whole pack at a fresh anchor, favoring ones away from the
+          // player so a new pack doesn't just pop in on top of them
+          const farAnchors = g.forest.packAnchors.filter(a=>dist(a,p) > 260);
+          const pool = farAnchors.length ? farAnchors : g.forest.packAnchors;
+          spawnForestPack(g, pool[Math.floor(Math.random()*pool.length)]);
+          g.forestRespawnCd = 6.5;
+        }
+      }
+    } else {
+      // portal + chest (spawn together once the room is cleared)
+      if(!g.portal && g.enemies.length===0){
+        const clearOfObstacles = (x,y,pad)=> room.obstacles.every(o=>!circleRectCollide(x,y,pad,o.x,o.y,o.w,o.h));
+        let px,py,ptries=0;
+        do{ px=rand(room.w*0.3,room.w*0.7); py=rand(room.h*0.3,room.h*0.7); ptries++; }
+        while(!clearOfObstacles(px,py,50) && ptries<30);
+        g.portal = {x:px, y:py, r:26, t:0};
+        let cx,cy,tries=0;
+        do{ cx=rand(room.w*0.2,room.w*0.8); cy=rand(room.h*0.2,room.h*0.8); tries++; }
+        while((dist({x:cx,y:cy},g.portal) < 120 || !clearOfObstacles(cx,cy,40)) && tries<30);
+        g.chest = {x:cx, y:cy, r:20, opened:false};
+        g.portalIsBoss = isBossFloor(g.depth);
+        if(g.portalIsBoss){
+          // defeating a boss permanently unlocks this checkpoint: the mine entrance
+          // will start here from now on, even after a death or a trip back to Town.
+          if(g.depth+1 > p.checkpointDepth){ p.checkpointDepth = g.depth+1; }
+          saveGame();
+          showMsg('Boss defeated! Checkpoint reached.', 1.8);
+        } else {
+          showMsg('The way opens...', 1.4);
+        }
+      }
+      if(g.chest && !g.chest.opened && dist(g.chest,p) < g.chest.r+p.r){
+        g.chest.opened = true;
+        const item = generateItem(g.depth, g.depth < 6 ? 'common' : (Math.random()<0.4?'rare':'magic'));
+        p.inventory.push(item);
+        showMsg('Chest: '+item.name, 1.7);
+        g.particles.push({type:'burst', x:g.chest.x, y:g.chest.y, t:0.4, max:0.4, color:'#e8c44a'});
+        bagPulse();
+      }
+      if(g.portal){
+        g.portal.t += dt;
+        updatePortalChoice(dist(g.portal,p) < g.portal.r+p.r+14);
+      } else {
+        updatePortalChoice(false);
+      }
+    }
+
+    // camera (iso space, follows player)
+    const pIso = toIso(p.x, p.y);
+    g.camera.x = pIso.x - W/2;
+    g.camera.y = pIso.y - H/2 + 40;
+
+    // HUD DOM
+    document.getElementById('hpfill').style.width = clamp(p.hp/p.maxHp*100,0,100)+'%';
+    document.getElementById('mpfill').style.width = clamp(p.mp/p.maxMp*100,0,100)+'%';
+    document.getElementById('xpfill').style.width = clamp(p.xp/p.xpNext*100,0,100)+'%';
+    document.getElementById('depthNum').textContent = g.scene==='forest' ? 'Forest' : g.depth;
+    document.getElementById('lvlText').textContent = 'Lv.'+p.level;
+    document.getElementById('goldNum').textContent = p.gold;
+
+    const cdFn=(el,cur,max)=>{ el.style.transform = 'translateY('+(clamp(cur/max,0,1)*100)+'%)'; };
+    cdFn(document.querySelector('#btnAttack .cd'), Math.max(0,p.atkCd), p.atkCdMax);
+    cdFn(document.querySelector('#btnDodge .cd'), Math.max(0,p.dodgeCd), p.dodgeCdMax);
+    cdFn(document.querySelector('#btnThrow .cd'), Math.max(0,p.shieldThrowCd), p.shieldThrowCdMax);
+    cdFn(document.querySelector('#btnGuardian .cd'), Math.max(0,p.guardianCd), p.guardianCdMax);
+    cdFn(document.querySelector('#btnWhirlwind .cd'), Math.max(0,p.whirlwindCd), p.whirlwindCdMax);
+    cdFn(document.querySelector('#btnAssault .cd'), Math.max(0,p.assaultCd), p.assaultCdMax);
+    cdFn(document.querySelector('#btnRally .cd'), Math.max(0,p.rallyCd), p.rallyCdMax);
+  }
+
+  function bagPulse(){ bagBadge.style.display='flex'; }
+
+  // ---------- Iso drawing helpers ----------
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+  function drawShadow(sx,sy,rx,ry){
+    ctx.beginPath();
+    ctx.fillStyle='rgba(0,0,0,0.42)';
+    ctx.ellipse(sx,sy+2,rx,ry,0,0,7);
+    ctx.fill();
+  }
+  function drawDiamond(cx,cy,a,b){
+    ctx.beginPath();
+    ctx.moveTo(cx, cy-b); ctx.lineTo(cx+a, cy); ctx.lineTo(cx, cy+b); ctx.lineTo(cx-a, cy);
+    ctx.closePath(); ctx.fill();
+  }
+  // A cheap deterministic hash so decorations (ore glints, rubble) stay put
+  // frame to frame instead of re-rolling every render.
+  function tileHash(ix,iy){
+    const h = Math.sin(ix*12.9898 + iy*78.233) * 43758.5453;
+    return h - Math.floor(h);
+  }
+  function drawFloor(room, cam){
+    // rough dirt-and-rock mine floor, with the odd glinting ore vein underfoot
+    const TS = 46;
+    for(let wy=-TS; wy<=room.h+TS; wy+=TS){
+      for(let wx=-TS; wx<=room.w+TS; wx+=TS){
+        const iso = toIso(wx,wy);
+        const sx = iso.x - cam.x, sy = iso.y - cam.y;
+        if(sx < -80 || sx > W+80 || sy < -80 || sy > H+80) continue;
+        const ix=Math.floor(wx/TS), iy=Math.floor(wy/TS);
+        const checker = ((ix+iy)%2+2)%2;
+        const h = tileHash(ix,iy);
+        ctx.fillStyle = checker ? (h>0.85?'#453a2c':'#352c22') : (h>0.85?'#4e4232':'#3a3024');
+        drawDiamond(iso.x, iso.y, TS*ISO_KX, TS*ISO_KY);
+        if(h>0.9){
+          // a small glinting ore vein embedded in this tile
+          ctx.save();
+          ctx.fillStyle = 'rgba(232,196,74,0.6)';
+          ctx.beginPath(); ctx.arc(iso.x+(h-0.95)*40, iso.y-3, 2.4, 0, 7); ctx.fill();
+          ctx.beginPath(); ctx.arc(iso.x-(h-0.95)*30, iso.y+3, 1.6, 0, 7); ctx.fill();
+          ctx.restore();
+        } else if(h<0.12){
+          // loose rubble
+          ctx.save();
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.beginPath(); ctx.ellipse(iso.x+4, iso.y+2, 4, 2.2, 0.3, 0, 7); ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+  }
+  function drawBlock(o, hz, topC, rightC, frontC){
+    const c0=toIso(o.x,o.y), c1=toIso(o.x+o.w,o.y), c2=toIso(o.x+o.w,o.y+o.h), c3=toIso(o.x,o.y+o.h);
+    ctx.fillStyle = frontC;
+    ctx.beginPath();
+    ctx.moveTo(c2.x,c2.y-hz); ctx.lineTo(c3.x,c3.y-hz); ctx.lineTo(c3.x,c3.y); ctx.lineTo(c2.x,c2.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = rightC;
+    ctx.beginPath();
+    ctx.moveTo(c1.x,c1.y-hz); ctx.lineTo(c2.x,c2.y-hz); ctx.lineTo(c2.x,c2.y); ctx.lineTo(c1.x,c1.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = topC;
+    ctx.beginPath();
+    ctx.moveTo(c0.x,c0.y-hz); ctx.lineTo(c1.x,c1.y-hz); ctx.lineTo(c2.x,c2.y-hz); ctx.lineTo(c3.x,c3.y-hz);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1; ctx.stroke();
+  }
+  // A mine-shaft support: a crossbeam and two timber posts holding up the
+  // rock overhead, with a torch mounted on the beam for light.
+  function drawMineSupport(wx, wy, hz){
+    const iso = toIso(wx,wy);
+    ctx.save(); ctx.translate(iso.x, iso.y-hz);
+    ctx.fillStyle='#4a3826';
+    roundRect(-14,0,6,hz+3,1); ctx.fill();
+    roundRect(8,0,6,hz+3,1); ctx.fill();
+    ctx.strokeStyle='#1e1610'; ctx.lineWidth=1;
+    ctx.strokeRect(-14,0,6,hz+3); ctx.strokeRect(8,0,6,hz+3);
+    ctx.fillStyle='#5a4632';
+    roundRect(-17,-6,34,8,2); ctx.fill();
+    ctx.strokeStyle='#1e1610'; ctx.lineWidth=1; ctx.strokeRect(-17,-6,34,8);
+    const flick = 4+Math.sin(Date.now()/90+wx*0.7)*1.2;
+    ctx.fillStyle='#e2703a';
+    ctx.beginPath(); ctx.arc(0,-13,flick,0,7); ctx.fill();
+    ctx.fillStyle='rgba(226,112,58,0.35)';
+    ctx.beginPath(); ctx.arc(0,-13,10,0,7); ctx.fill();
+    ctx.restore();
+  }
+  function drawWalls(room){
+    // rough excavated rock walls, shored up with timber supports and torchlight
+    const wt=18, hz=58, top='#463c30', right='#221c14', front='#302819';
+    drawBlock({x:-wt,y:-wt,w:room.w+wt*2,h:wt}, hz, top,right,front);
+    drawBlock({x:-wt,y:room.h,w:room.w+wt*2,h:wt}, hz, top,right,front);
+    drawBlock({x:-wt,y:0,w:wt,h:room.h}, hz, top,right,front);
+    drawBlock({x:room.w,y:0,w:wt,h:room.h}, hz, top,right,front);
+    const spacing = 150;
+    for(let wx=60; wx<room.w; wx+=spacing){
+      drawMineSupport(wx, -wt*0.5, hz);
+      drawMineSupport(wx, room.h+wt*0.5, hz);
+    }
+    for(let wy=60; wy<room.h; wy+=spacing){
+      drawMineSupport(-wt*0.5, wy, hz);
+      drawMineSupport(room.w+wt*0.5, wy, hz);
+    }
+  }
+
+  // ---------- Town (outdoors) ----------
+  function drawTownFloor(room, cam){
+    const TS = 46;
+    for(let wy=-TS; wy<=room.h+TS; wy+=TS){
+      for(let wx=-TS; wx<=room.w+TS; wx+=TS){
+        const iso = toIso(wx,wy);
+        const sx = iso.x - cam.x, sy = iso.y - cam.y;
+        if(sx < -80 || sx > W+80 || sy < -80 || sy > H+80) continue;
+        const checker = (((Math.floor(wx/TS)+Math.floor(wy/TS))%2)+2)%2;
+        // a dirt path runs along the row connecting spawn -> blacksmith -> gate
+        const onPath = Math.abs(wy-170) < 46;
+        if(onPath) ctx.fillStyle = checker ? '#8a7550' : '#7a6444';
+        else ctx.fillStyle = checker ? '#2f5a36' : '#376a3e';
+        drawDiamond(iso.x, iso.y, TS*ISO_KX, TS*ISO_KY);
+      }
+    }
+  }
+  // A darker, mossier checkerboard than the town square, with a worn dirt
+  // trail running between the two forest gates.
+  function drawForestFloor(room, cam){
+    const TS = 46;
+    for(let wx=-TS; wx<=room.w+TS; wx+=TS){
+      const trailY = forestTrailYAt(room.waypoints, wx);
+      for(let wy=-TS; wy<=room.h+TS; wy+=TS){
+        const iso = toIso(wx,wy);
+        const sx = iso.x - cam.x, sy = iso.y - cam.y;
+        if(sx < -80 || sx > W+80 || sy < -80 || sy > H+80) continue;
+        const checker = (((Math.floor(wx/TS)+Math.floor(wy/TS))%2)+2)%2;
+        const onPath = Math.abs(wy-trailY) < 42;
+        if(onPath) ctx.fillStyle = checker ? '#5a4a34' : '#4e4029';
+        else ctx.fillStyle = checker ? '#1e3a22' : '#254527';
+        drawDiamond(iso.x, iso.y, TS*ISO_KX, TS*ISO_KY);
+      }
+    }
+  }
+  // A low wooden fence frames the town square instead of dungeon stone walls,
+  // with a gap left open on the right where the road leads out to the Forest.
+  function drawTownPerimeter(room){
+    const wt=9, hz=20, top='#7a5636', right='#3a2818', front='#4e3420';
+    drawBlock({x:-wt,y:-wt,w:room.w+wt*2,h:wt}, hz, top,right,front);
+    drawBlock({x:-wt,y:room.h,w:room.w+wt*2,h:wt}, hz, top,right,front);
+    drawBlock({x:-wt,y:0,w:wt,h:room.h}, hz, top,right,front);
+    drawBlock({x:room.w,y:0,w:wt,h:230}, hz, top,right,front);
+    drawBlock({x:room.w,y:330,w:wt,h:room.h-330}, hz, top,right,front);
+  }
+  function drawTreeIso(t){
+    const iso = toIso(t.x,t.y);
+    drawShadow(iso.x, iso.y, 15, 6.5);
+    ctx.save(); ctx.translate(iso.x, iso.y);
+    ctx.fillStyle='#4a3220'; ctx.fillRect(-3,-20,6,20);
+    ctx.strokeStyle='#241a10'; ctx.lineWidth=1; ctx.strokeRect(-3,-20,6,20);
+    for(let i=0;i<3;i++){
+      const w = 24-i*6, topY=-22-i*13, baseY=-8-i*13;
+      const grd = ctx.createLinearGradient(-w/2,topY,w/2,baseY);
+      grd.addColorStop(0,'#4a8a4e'); grd.addColorStop(1,'#245a2c');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.moveTo(0,topY); ctx.lineTo(-w/2,baseY); ctx.lineTo(w/2,baseY); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // Generic small building: a walled box with a simple pitched roof, used for
+  // both the blacksmith's forge and any purely decorative structures in town.
+  function drawBuildingIso(b){
+    const hz = b.hz;
+    drawBlock({x:b.x,y:b.y,w:b.w,h:b.h}, hz, b.wallTop, b.wallRight, b.wallFront);
+    const c1=toIso(b.x+b.w,b.y), c2=toIso(b.x+b.w,b.y+b.h), c3=toIso(b.x,b.y+b.h);
+    const peakIso = toIso(b.x+b.w/2, b.y+b.h/2);
+    const peak = {x:peakIso.x, y:peakIso.y-hz-b.roofH};
+    ctx.fillStyle = b.roofRight;
+    ctx.beginPath(); ctx.moveTo(c1.x,c1.y-hz); ctx.lineTo(c2.x,c2.y-hz); ctx.lineTo(peak.x,peak.y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle = b.roofFront;
+    ctx.beginPath(); ctx.moveTo(c2.x,c2.y-hz); ctx.lineTo(c3.x,c3.y-hz); ctx.lineTo(peak.x,peak.y); ctx.closePath(); ctx.fill();
+    ctx.stroke();
+    if(b.chimney){
+      const chIso = toIso(b.x+b.w*0.74, b.y+b.h*0.24);
+      const chH=17, chBase = chIso.y-hz-b.roofH*0.62;
+      ctx.fillStyle='#5a4a44';
+      ctx.fillRect(chIso.x-4, chBase-chH, 8, chH);
+      ctx.strokeStyle='#241c18'; ctx.lineWidth=1; ctx.strokeRect(chIso.x-4, chBase-chH, 8, chH);
+    }
+    if(b.door){
+      const doorIso = toIso(b.x+b.w*0.5, b.y+b.h);
+      const dw=13, dh=19;
+      ctx.fillStyle='#2a1c12';
+      roundRect(doorIso.x-dw/2, doorIso.y-dh, dw, dh, 2); ctx.fill();
+      ctx.strokeStyle='#140d08'; ctx.lineWidth=1; ctx.stroke();
+    }
+    if(b.window){
+      const winIso = toIso(b.x+b.w*0.2, b.y+b.h);
+      ctx.fillStyle='rgba(255,205,120,0.55)';
+      roundRect(winIso.x-6, winIso.y-hz*0.6, 12, 12, 2); ctx.fill();
+      ctx.strokeStyle='#241c18'; ctx.lineWidth=1; ctx.strokeRect(winIso.x-6, winIso.y-hz*0.6, 12, 12);
+    }
+  }
+  function drawPortalIso(pr, clock){
+    const iso = toIso(pr.x,pr.y);
+    const pulse = 1+Math.sin(clock*4)*0.1;
+    const rad = pr.r*pulse*ISO_KX;
+    ctx.save(); ctx.translate(iso.x,iso.y); ctx.scale(1, ISO_KY/ISO_KX);
+    const grad = ctx.createRadialGradient(0,0,2,0,0,rad);
+    grad.addColorStop(0,'#d3b4ff'); grad.addColorStop(1,'rgba(90,50,150,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath(); ctx.arc(0,0,rad,0,7); ctx.fill();
+    ctx.restore();
+  }
+  // Town's standing portal back down to the Mine, at whatever depth the
+  // player has unlocked as a checkpoint -- a blue swirl (vs. the Mine's own
+  // purple descend portal) so it reads as a distinct, permanent shortcut
+  // rather than a level-clear reward.
+  function drawBluePortalIso(pr, clock){
+    const iso = toIso(pr.x,pr.y);
+    const pulse = 1+Math.sin(clock*4)*0.12;
+    const rad = pr.r*pulse*ISO_KX;
+    drawShadow(iso.x, iso.y, pr.r*0.9, 10);
+    ctx.save(); ctx.translate(iso.x,iso.y); ctx.scale(1, ISO_KY/ISO_KX);
+    const grad = ctx.createRadialGradient(0,0,2,0,0,rad);
+    grad.addColorStop(0,'#dff2ff'); grad.addColorStop(0.5,'#5b9cff'); grad.addColorStop(1,'rgba(20,50,120,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath(); ctx.arc(0,0,rad,0,7); ctx.fill();
+    // a couple of slow-spinning rings for a bit more life than a flat glow
+    ctx.strokeStyle = 'rgba(220,240,255,0.55)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(0,0, rad*0.62, rad*0.62, clock*1.4, 0, 4.6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(160,200,255,0.4)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(0,0, rad*0.38, rad*0.38, -clock*1.9, 0, 4.2); ctx.stroke();
+    ctx.restore();
+  }
+  function drawBlacksmithIso(b, clock){
+    const iso = toIso(b.x, b.y);
+    const t = clock||0;
+
+    // the forge -- a large stone-and-timber shop building standing behind the stall
+    const fx=b.x-75, fy=b.y-130, fw=150, fh=104, fhz=58, froofH=40;
+    drawBuildingIso({
+      x:fx, y:fy, w:fw, h:fh, hz:fhz, roofH:froofH,
+      wallTop:'#6a5646', wallRight:'#362a20', wallFront:'#48392a',
+      roofRight:'#5a2c22', roofFront:'#78392a',
+      chimney:true, door:false, window:true,
+    });
+    // chimney smoke -- a few soft rising puffs
+    const chIso = toIso(fx+fw*0.74, fy+fh*0.24);
+    const chTop = chIso.y-fhz-froofH*0.62-17;
+    ctx.save();
+    for(let i=0;i<3;i++){
+      const phase = (t*0.35 + i*0.33) % 1;
+      const py = chTop - phase*30;
+      const alpha = 0.32*(1-phase);
+      const r = 3.5+phase*5;
+      ctx.fillStyle = 'rgba(200,196,190,'+alpha+')';
+      ctx.beginPath(); ctx.arc(chIso.x + Math.sin(phase*6)*3, py, r, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+
+    drawShadow(iso.x, iso.y, 24, 11);
+    // stall counter
+    ctx.save(); ctx.translate(iso.x, iso.y);
+    const counterGrad = ctx.createLinearGradient(-22,-14,22,10);
+    counterGrad.addColorStop(0,'#6b4a2e'); counterGrad.addColorStop(1,'#3a2818');
+    ctx.fillStyle = counterGrad;
+    ctx.beginPath(); ctx.moveTo(-22,0); ctx.lineTo(0,-13); ctx.lineTo(22,0); ctx.lineTo(0,13); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#1c1310'; ctx.lineWidth=1.4; ctx.stroke();
+    // anvil on the counter
+    ctx.fillStyle='#2a2a30';
+    ctx.beginPath(); ctx.ellipse(0,-6,8,4,0,0,7); ctx.fill();
+    ctx.fillStyle='#4a4a54';
+    ctx.beginPath(); ctx.ellipse(0,-8,5,2.6,0,0,7); ctx.fill();
+    ctx.restore();
+
+    // the blacksmith NPC -- standing beside the anvil, hammer in hand
+    const bob = Math.sin(t*3)*1;
+    ctx.save(); ctx.translate(iso.x-13, iso.y-1+bob);
+    // legs
+    ctx.fillStyle='#3a2e22';
+    ctx.fillRect(-7,-3,5,15); ctx.fillRect(2,-3,5,15);
+    // boots
+    ctx.fillStyle='#241a12';
+    roundRect(-8,10,7,6,2); ctx.fill(); roundRect(1,10,7,6,2); ctx.fill();
+    // torso (heavyset, leather apron over a tunic)
+    const torsoGrad = ctx.createLinearGradient(-10,-29,10,-3);
+    torsoGrad.addColorStop(0,'#8a6a4a'); torsoGrad.addColorStop(1,'#4a3624');
+    ctx.fillStyle = torsoGrad;
+    roundRect(-10,-29,20,27,5); ctx.fill();
+    ctx.strokeStyle='#2a1e14'; ctx.lineWidth=1.2; ctx.stroke();
+    // apron
+    ctx.fillStyle='#5a3a28';
+    roundRect(-7,-17,14,19,2); ctx.fill();
+    ctx.strokeStyle='#2a1c12'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-7,-9); ctx.lineTo(7,-9); ctx.stroke(); // apron strap line
+    // left arm, resting on the counter
+    ctx.strokeStyle='#8a6a4a'; ctx.lineCap='round'; ctx.lineWidth=6;
+    ctx.beginPath(); ctx.moveTo(-9,-21); ctx.lineTo(-16,-7); ctx.stroke();
+    ctx.fillStyle='#c9a074'; ctx.beginPath(); ctx.arc(-16,-6,3.2,0,7); ctx.fill(); // hand
+    // right arm swinging a hammer down onto the anvil
+    const swing = Math.sin(t*2.6)*0.35;
+    ctx.save();
+    ctx.translate(9,-21);
+    ctx.rotate(swing);
+    ctx.strokeStyle='#8a6a4a'; ctx.lineWidth=6;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(9,11); ctx.stroke();
+    ctx.translate(9,11);
+    ctx.fillStyle='#3a3238'; ctx.fillRect(-2,0,4,11); // handle
+    ctx.fillStyle='#5a5a62'; ctx.fillRect(-4,-4,15,7); // hammer head
+    ctx.strokeStyle='#232228'; ctx.lineWidth=1; ctx.strokeRect(-4,-4,15,7);
+    ctx.restore();
+    // head
+    ctx.fillStyle='#c9a074';
+    ctx.beginPath(); ctx.arc(0,-34,7.5,0,7); ctx.fill();
+    ctx.strokeStyle='#3a2a1c'; ctx.lineWidth=1; ctx.stroke();
+    // hair (back/top of the head)
+    ctx.fillStyle='#5a4a3a';
+    ctx.beginPath(); ctx.arc(0,-37.5,7.6,3.5,6.05); ctx.fill();
+    // beard
+    ctx.fillStyle='#8a8078';
+    ctx.beginPath(); ctx.arc(0,-29,5.6,0.15,2.99); ctx.fill();
+    ctx.restore();
+  }
+  // style 'stone' (default) is the torch-lit dungeon-style archway used for the
+  // Mine entrance; style 'wood' is a plain timber gate used for Town <-> Forest.
+  // Zone transitions sit at the map's own edge now (a gap in the fence or
+  // treeline), so all that's drawn there is a floating name, not a gate prop.
+  function drawEdgeLabelIso(pos, label){
+    const iso = toIso(pos.x, pos.y);
+    ctx.save();
+    ctx.font = "bold 13px Georgia, 'Times New Roman', serif";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e8c44a';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+    ctx.fillText(label, iso.x, iso.y-30);
+    ctx.restore();
+  }
+  function drawGateIso(gate, label, style){
+    const wood = style==='wood';
+    const iso = toIso(gate.x, gate.y);
+    drawShadow(iso.x, iso.y, 20, 9);
+    ctx.save(); ctx.translate(iso.x, iso.y);
+    const pillarGrad = ctx.createLinearGradient(0,-64,0,4);
+    if(wood){ pillarGrad.addColorStop(0,'#7a5636'); pillarGrad.addColorStop(1,'#3a2818'); }
+    else { pillarGrad.addColorStop(0,'#4a4048'); pillarGrad.addColorStop(1,'#241c22'); }
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(-22,-64,8,68);
+    ctx.fillRect(14,-64,8,68);
+    ctx.strokeStyle='#141014'; ctx.lineWidth=1.2;
+    ctx.strokeRect(-22,-64,8,68); ctx.strokeRect(14,-64,8,68);
+    // arch
+    ctx.beginPath();
+    ctx.moveTo(-22,-64); ctx.quadraticCurveTo(0,-92, 22,-64);
+    ctx.lineTo(14,-64); ctx.quadraticCurveTo(0,-80,-14,-64);
+    ctx.closePath();
+    ctx.fillStyle = wood ? '#5a3e26' : '#3a3038'; ctx.fill(); ctx.stroke();
+    if(wood){
+      // simple crossbeam planks instead of torches for a plain wooden gate
+      ctx.strokeStyle='#2a1c10'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(-22,-40); ctx.lineTo(22,-40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-22,-16); ctx.lineTo(22,-16); ctx.stroke();
+    } else {
+      // torches
+      for(const side of [-1,1]){
+        ctx.save(); ctx.translate(side*18, -68);
+        ctx.fillStyle = '#e2703a';
+        ctx.beginPath(); ctx.arc(0,0,4+Math.sin(Date.now()/90+side)*1.2,0,7); ctx.fill();
+        ctx.fillStyle='rgba(226,112,58,0.35)';
+        ctx.beginPath(); ctx.arc(0,0,9,0,7); ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    // label
+    ctx.save();
+    ctx.font = "bold 13px Georgia, 'Times New Roman', serif";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e8c44a';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
+    ctx.fillText(label||'MINE', iso.x, iso.y-96);
+    ctx.restore();
+  }
+  function drawChestIso(chest){
+    const iso = toIso(chest.x,chest.y);
+    drawShadow(iso.x, iso.y, 14, 7);
+    ctx.save(); ctx.translate(iso.x, iso.y-6);
+    const bodyGrad = ctx.createLinearGradient(-14,-6,14,8);
+    if(chest.opened){ bodyGrad.addColorStop(0,'#5a4326'); bodyGrad.addColorStop(1,'#2e2113'); }
+    else { bodyGrad.addColorStop(0,'#8a6a38'); bodyGrad.addColorStop(1,'#5a4326'); }
+    ctx.fillStyle = bodyGrad;
+    roundRect(-14,-6,28,14,3); ctx.fill();
+    ctx.strokeStyle='#231a0e'; ctx.lineWidth=1.4; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-14,1); ctx.lineTo(14,1); ctx.stroke();
+
+    ctx.save();
+    if(chest.opened){ ctx.translate(-14,-6); ctx.rotate(-1.9); }
+    else { ctx.translate(-14,-6); }
+    const lidGrad = ctx.createLinearGradient(0,-10,28,0);
+    if(chest.opened){ lidGrad.addColorStop(0,'#3a2c18'); lidGrad.addColorStop(1,'#231a0e'); }
+    else { lidGrad.addColorStop(0,'#d9b25c'); lidGrad.addColorStop(1,'#a8863a'); }
+    ctx.fillStyle = lidGrad;
+    roundRect(0,-10,28,10,3); ctx.fill();
+    ctx.strokeStyle='#231a0e'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.restore();
+
+    if(!chest.opened){
+      ctx.save();
+      ctx.shadowColor='#ffe27a'; ctx.shadowBlur=6;
+      ctx.fillStyle='#ffe27a';
+      ctx.beginPath(); ctx.arc(0,-2,3,0,7); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  function drawLootIso(l, clock){
+    const iso = toIso(l.x,l.y);
+    const bounce = Math.sin(clock*4 + l.x*0.1)*2;
+    drawShadow(iso.x, iso.y, 9, 4.5);
+    ctx.save(); ctx.translate(iso.x, iso.y - 6 + bounce);
+    if(l.type==='potion'){
+      ctx.fillStyle='#e0455f'; roundRect(-4,-7,8,12,2); ctx.fill();
+      ctx.fillStyle='#7a2030'; ctx.fillRect(-2,-9,4,3);
+    } else if(l.type==='item'){
+      const glow = 0.5+Math.sin(clock*5)*0.25;
+      ctx.save();
+      ctx.shadowColor = l.item.color; ctx.shadowBlur = 8+glow*4;
+      ctx.fillStyle = l.item.color;
+      ctx.beginPath(); ctx.moveTo(0,-9); ctx.lineTo(6,0); ctx.lineTo(0,9); ctx.lineTo(-6,0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.6)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.fillStyle='#e8c44a';
+      ctx.beginPath(); ctx.arc(0,-3,6,0,7); ctx.fill();
+      ctx.strokeStyle='#a8863a'; ctx.lineWidth=1.2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawShieldThrowIso(st){
+    const iso = toIso(st.x, st.y);
+    ctx.save();
+    ctx.translate(iso.x, iso.y-16);
+    ctx.rotate((st.dist||0)*0.05);
+    const g2 = ctx.createRadialGradient(-1,-2,1,0,0,9);
+    g2.addColorStop(0,'#eef2f8'); g2.addColorStop(0.6,'#8f99aa'); g2.addColorStop(1,'#4a525f');
+    ctx.fillStyle = g2;
+    ctx.shadowColor = '#cdd8e6'; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.ellipse(0,0,7,9,0,0,7); ctx.fill();
+    ctx.strokeStyle='#232833'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.fillStyle='#c8a24a';
+    ctx.beginPath(); ctx.arc(0,0,2,0,7); ctx.fill();
+    ctx.restore();
+  }
+  function drawProjectilesIso(list){
+    for(const pr of list){
+      const iso = toIso(pr.x,pr.y);
+      if(pr.isArrow){
+        const isoV = toIso(pr.x+pr.vx, pr.y+pr.vy);
+        const ang = Math.atan2(isoV.y-iso.y, isoV.x-iso.x);
+        ctx.save();
+        ctx.translate(iso.x, iso.y-16);
+        ctx.rotate(ang);
+        ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9,0); ctx.lineTo(6,0); ctx.stroke();
+        ctx.fillStyle = pr.color;
+        ctx.beginPath(); ctx.moveTo(9,0); ctx.lineTo(4,-2.6); ctx.lineTo(4,2.6); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#c9a074'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-9,0); ctx.lineTo(-6,-2); ctx.moveTo(-9,0); ctx.lineTo(-6,2); ctx.stroke();
+        ctx.restore();
+      } else if(pr.isWeb){
+        // a small spinning web-strand bolt instead of a plain dot
+        ctx.save();
+        ctx.translate(iso.x, iso.y-16);
+        ctx.rotate((pr.life||0)*6);
+        ctx.strokeStyle = 'rgba(220,240,210,0.9)'; ctx.lineWidth = 1.3;
+        ctx.shadowColor = '#8fd05a'; ctx.shadowBlur = 5;
+        for(let i=0;i<4;i++){
+          const a = i*Math.PI/4;
+          ctx.beginPath(); ctx.moveTo(Math.cos(a)*-pr.r, Math.sin(a)*-pr.r); ctx.lineTo(Math.cos(a)*pr.r, Math.sin(a)*pr.r); ctx.stroke();
+        }
+        ctx.beginPath();
+        for(let i=0;i<=8;i++){
+          const a = i*Math.PI/4;
+          const rr = pr.r*0.6;
+          ctx[i===0?'moveTo':'lineTo'](Math.cos(a)*rr, Math.sin(a)*rr);
+        }
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.beginPath(); ctx.fillStyle=pr.color;
+        ctx.arc(iso.x, iso.y-16, pr.r, 0,7); ctx.fill();
+      }
+    }
+  }
+  function drawParticlesIso(list){
+    for(const pt of list){
+      const a = pt.t/pt.max;
+      const iso = toIso(pt.x, pt.y);
+      if(pt.type==='slash'){
+        ctx.save(); ctx.translate(iso.x, iso.y-30); ctx.rotate(pt.ang*0.4);
+        if(pt.color){ ctx.globalAlpha = a; ctx.strokeStyle = pt.color; }
+        else { ctx.strokeStyle = pt.crit ? ('rgba(255,226,122,'+a+')') : ('rgba(255,220,180,'+a+')'); }
+        ctx.lineWidth = pt.crit ? 6 : 4;
+        ctx.beginPath(); ctx.arc(0,0,pt.crit?26:22,-0.9,0.9); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      } else if(pt.type==='burst'){
+        ctx.beginPath(); ctx.fillStyle=(pt.color||'#fff'); ctx.globalAlpha=a;
+        ctx.arc(iso.x, iso.y-16, 16*(1-a)+5, 0,7); ctx.fill(); ctx.globalAlpha=1;
+      } else if(pt.type==='ring'){
+        ctx.save();
+        ctx.globalAlpha = a*0.8;
+        ctx.strokeStyle = pt.color||'#fff';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(iso.x, iso.y-10, (pt.r||50)*(1-a)*0.9*ISO_KX+8, (pt.r||50)*(1-a)*0.9*ISO_KY+4, 0, 0, 7); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+  function drawHpBar(iso, topY, r, hp, maxHp){
+    const bw = 26*(r/16);
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(iso.x-bw/2, iso.y-topY, bw, 4);
+    ctx.fillStyle='#e0455f'; ctx.fillRect(iso.x-bw/2, iso.y-topY, bw*clamp(hp/maxHp,0,1), 4);
+  }
+
+  function drawFollowerIso(f){
+    const iso = toIso(f.x,f.y);
+    const s = f.r/16, face = f.faceSign||1, t = f.animT||0;
+    const moving = f.moving, flash = f.hitT>0;
+    const stanceColor = {attack:'#e2703a', defend:'#5b8cff', hold:'#8a8078'}[f.stance] || '#c9bfa8';
+    const darkColor = '#241c14';
+
+    drawShadow(iso.x, iso.y, 15*s, 7*s);
+
+    ctx.save();
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+
+    const cyc = 10;
+    const walk = moving ? Math.sin(t*cyc) : 0;
+    const bob = moving ? Math.abs(Math.sin(t*cyc))*2 : Math.sin(t*2.2)*0.6;
+    const legLen = 13, torsoW=13, torsoH=16, headR=6.5;
+    const legSwing = walk*5;
+    const baseY = -legLen + bob;
+
+    // legs
+    ctx.fillStyle = darkColor;
+    roundRect(-torsoW*0.28-2.5, baseY-legLen-legSwing*0.1, 5, legLen+legSwing*0.1, 2); ctx.fill();
+    roundRect(torsoW*0.28-2.5, baseY-legLen+legSwing*0.1, 5, legLen-legSwing*0.1, 2); ctx.fill();
+
+    // torso
+    let torsoFill;
+    if(flash){ torsoFill = '#ffffff'; }
+    else {
+      const tg = ctx.createLinearGradient(-torsoW/2, baseY-torsoH, torsoW/2, baseY);
+      tg.addColorStop(0, '#cdd0d6'); tg.addColorStop(1, '#5a5f68');
+      torsoFill = tg;
+    }
+    ctx.fillStyle = torsoFill;
+    roundRect(-torsoW/2, baseY-torsoH, torsoW, torsoH, torsoW*0.3); ctx.fill();
+    ctx.strokeStyle = stanceColor; ctx.lineWidth = 1.6; ctx.stroke();
+
+    // shield (off-hand)
+    ctx.fillStyle = '#7a6a44';
+    ctx.beginPath(); ctx.ellipse(-torsoW/2-4, baseY-torsoH*0.55, 4.5, 7, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#3a3020'; ctx.lineWidth = 1; ctx.stroke();
+
+    // sword (main hand)
+    ctx.strokeStyle = '#d8d8de'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(torsoW/2+2, baseY-torsoH*0.6); ctx.lineTo(torsoW/2+9, baseY-torsoH*1.15); ctx.stroke();
+
+    // head
+    const headY = baseY-torsoH-headR*0.55;
+    ctx.fillStyle = flash ? '#ffffff' : '#c9a479';
+    ctx.beginPath(); ctx.arc(0, headY, headR, 0, 7); ctx.fill();
+    ctx.strokeStyle = darkColor; ctx.lineWidth = 1; ctx.stroke();
+
+    ctx.restore();
+
+    if(f.taunting){
+      ctx.save();
+      ctx.fillStyle = '#ffd23a';
+      ctx.font = 'bold 13px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('!', iso.x, iso.y - (legLen+torsoH+headR*2+8)*s);
+      ctx.restore();
+    }
+
+    drawHpBar(iso, (legLen+torsoH+headR*2+6)*s, f.r, f.hp, f.maxHp);
+  }
+
+  function drawWarrior(p){
+    const iso = toIso(p.x,p.y);
+    const s = p.r/16, face = p.faceSign||1, t = p.animT||0;
+    const moving = p.moving, atk = p.atkAnimT||0, cast = p.castAnimT||0;
+    let alpha = 1;
+    if(p.dodging) alpha=0.5; else if(p.hitFlash>0) alpha = 0.55+Math.sin(p.hitFlash*40)*0.2;
+
+    const eq = (p.equipment) || {};
+    const mh = eq.mainhand, offh = eq.offhand;
+    const twoHand = !!(mh && mh.twoHanded);
+    const isBow = !!(mh && mh.slotType==='bow');
+    const hasShield = !!(offh && offh.slotType==='shield');
+    const offhandSword = !!(offh && offh.slotType==='weapon1h');
+
+    drawShadow(iso.x, iso.y, 15*s, 7*s);
+
+    if(p.guardianT>0){
+      ctx.save();
+      ctx.globalAlpha = 0.55 + Math.sin((p.animT||0)*10)*0.2;
+      ctx.strokeStyle = '#f0d078';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#f0d078'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.ellipse(iso.x, iso.y-20, 20*s, 28*s, 0, 0, 7); ctx.stroke();
+      ctx.restore();
+    }
+
+    if(p.assaultT>0){
+      const durMax = p.assaultDurMax||1;
+      const frac = clamp(1 - p.assaultT/durMax, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = (0.4 + frac*0.4) + Math.sin((p.animT||0)*14)*0.15;
+      ctx.strokeStyle = '#e2382f';
+      ctx.lineWidth = 3 + frac*2;
+      ctx.shadowColor = '#e2382f'; ctx.shadowBlur = 8 + frac*10;
+      ctx.beginPath(); ctx.ellipse(iso.x, iso.y-20, 20*s, 28*s, 0, 0, 7); ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+
+    const walk = moving ? Math.sin(t*10) : 0;
+    const bob = moving ? Math.abs(Math.sin(t*10))*2 : Math.sin(t*2)*1.2;
+    const legSwing = walk*7;
+    const flutter = Math.sin(t*6)*3 + walk*2;
+
+    // cape (two-layer, for volume)
+    const capeBackGrad = ctx.createLinearGradient(-4,-40+bob,-22,-2);
+    capeBackGrad.addColorStop(0,'#2c0a15'); capeBackGrad.addColorStop(1,'#160510');
+    ctx.fillStyle = capeBackGrad;
+    ctx.beginPath();
+    ctx.moveTo(-6,-39+bob*0.3);
+    ctx.quadraticCurveTo(-20+walk*2+flutter*1.3, -17+bob*0.3, -11-flutter*0.6, 2);
+    ctx.lineTo(-2,-2);
+    ctx.lineTo(-3,-37+bob*0.3);
+    ctx.closePath(); ctx.fill();
+
+    const capeGrad = ctx.createLinearGradient(-4,-42+bob,-20,-6);
+    capeGrad.addColorStop(0, p.invuln>0 ? '#ffb56a' : '#b23a4a');
+    capeGrad.addColorStop(1, '#3a0f1c');
+    ctx.fillStyle = capeGrad;
+    ctx.beginPath();
+    ctx.moveTo(-7,-40+bob*0.3);
+    ctx.quadraticCurveTo(-15+walk*2+flutter, -20+bob*0.3, -8-flutter*0.4, -1);
+    ctx.lineTo(-1,-4);
+    ctx.lineTo(-4,-38+bob*0.3);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+
+    // legs (greaves with a light rim + dark plating)
+    const legGradL = ctx.createLinearGradient(-7,-18,-1,0);
+    legGradL.addColorStop(0,'#5a5262'); legGradL.addColorStop(1,'#2a242f');
+    ctx.fillStyle=legGradL;
+    roundRect(-7,-18-legSwing*0.15, 6, 18+legSwing*0.15, 3); ctx.fill();
+    ctx.strokeStyle='#1a151d'; ctx.lineWidth=1; ctx.stroke();
+    const legGradR = ctx.createLinearGradient(1,-18,7,0);
+    legGradR.addColorStop(0,'#463f4c'); legGradR.addColorStop(1,'#221d26');
+    ctx.fillStyle=legGradR;
+    roundRect(1,-18+legSwing*0.15, 6, 18-legSwing*0.15, 3); ctx.fill();
+    ctx.strokeStyle='#1a151d'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.15)';
+    ctx.fillRect(-6,-16-legSwing*0.15,1.4,13);
+
+    // torso (armor, gradient shaded + rim light)
+    const torsoGrad = ctx.createLinearGradient(-9,-42+bob,9,-18+bob);
+    torsoGrad.addColorStop(0,'#d3dbe8'); torsoGrad.addColorStop(0.55,'#8f99aa'); torsoGrad.addColorStop(1,'#565f6e');
+    ctx.fillStyle = torsoGrad;
+    roundRect(-9,-42+bob, 18, 24, 5); ctx.fill();
+    ctx.strokeStyle='#333a45'; ctx.lineWidth=1.4; ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-7,-40+bob); ctx.lineTo(-7,-20+bob); ctx.stroke();
+    // chest seam + belt
+    ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,-42+bob); ctx.lineTo(0,-18+bob); ctx.stroke();
+    ctx.fillStyle='#c8a24a'; ctx.fillRect(-9,-21+bob,18,3);
+    ctx.fillStyle='#8a6a2a'; ctx.fillRect(-2,-21+bob,4,3);
+
+    // pauldrons (shoulder guards)
+    for(const sideSign of [-1,1]){
+      ctx.save();
+      ctx.translate(sideSign*8.5,-40+bob);
+      const pgrad = ctx.createRadialGradient(-1.5,-1.5,0.5,0,0,5.5);
+      pgrad.addColorStop(0,'#e6ecf4'); pgrad.addColorStop(1,'#5b6575');
+      ctx.fillStyle = pgrad;
+      ctx.beginPath(); ctx.ellipse(0,0,5,4.4,0,0,7); ctx.fill();
+      ctx.strokeStyle='#2e3542'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    }
+
+    // off-hand: shield if one is equipped, otherwise a plain armored fist
+    if(hasShield){
+      ctx.save();
+      const raised = p.blocking;
+      ctx.translate(raised?-14:-12, (raised?-38:-34)+bob);
+      if(raised){ ctx.shadowColor='#cdd8e6'; ctx.shadowBlur=8; }
+      const shieldGrad = ctx.createRadialGradient(-1,-3,1,0,0,10);
+      shieldGrad.addColorStop(0,'#eef2f8'); shieldGrad.addColorStop(0.6,'#8f99aa'); shieldGrad.addColorStop(1,'#4a525f');
+      ctx.fillStyle=shieldGrad;
+      ctx.beginPath(); ctx.ellipse(0,4,raised?8.4:7,raised?11.5:10,0,0,7); ctx.fill();
+      ctx.strokeStyle='#232833'; ctx.lineWidth=1.3; ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.ellipse(-1.5,1,4.5,7,0,3.4,5.6); ctx.stroke();
+      ctx.fillStyle='#c8a24a';
+      ctx.beginPath(); ctx.arc(0,4,2.4,0,7); ctx.fill();
+      ctx.strokeStyle='#8a6a2a'; ctx.lineWidth=0.8; ctx.stroke();
+      ctx.restore();
+    } else if(offhandSword){
+      // Weapons Specialist (Berserker skill): a second sword mirrored into the off-hand
+      ctx.save(); ctx.translate(-11,-34+bob); ctx.scale(-1,1);
+      const bladeGrad = ctx.createLinearGradient(-2,-22,2,4);
+      bladeGrad.addColorStop(0,'#f2f4f8'); bladeGrad.addColorStop(1,'#8b93a0');
+      ctx.strokeStyle='#3a3428'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(2,-20); ctx.lineTo(0,-24); ctx.lineTo(-2,-20); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.moveTo(0,2); ctx.lineTo(0,-19); ctx.stroke();
+      ctx.fillStyle='#a8863a'; ctx.fillRect(-3,3,6,3);
+      ctx.restore();
+    } else if(isBow){
+      // the bow itself is drawn steadied in the weapon-arm block below; the
+      // off-hand just grips the riser partway up
+      ctx.save(); ctx.translate(-2,-24+bob);
+      const fistGrad = ctx.createRadialGradient(-1,-1,0.5,0,0,4.2);
+      fistGrad.addColorStop(0,'#c9d2e0'); fistGrad.addColorStop(1,'#5b6575');
+      ctx.fillStyle=fistGrad;
+      ctx.beginPath(); ctx.arc(0,0,3.8,0,7); ctx.fill();
+      ctx.strokeStyle='#2e3542'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.save(); ctx.translate(-11,-32+bob);
+      const fistGrad = ctx.createRadialGradient(-1,-1,0.5,0,0,5);
+      fistGrad.addColorStop(0,'#c9d2e0'); fistGrad.addColorStop(1,'#5b6575');
+      ctx.fillStyle=fistGrad;
+      ctx.beginPath(); ctx.arc(0,3,4.4,0,7); ctx.fill();
+      ctx.strokeStyle='#2e3542'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    }
+
+    // weapon arm: a bigger two-handed grip for a greatsword, a single-hand blade otherwise
+    const swing = atk>0 ? (atk/0.22) : 0;
+    const raise = cast>0 ? (cast/0.25) : 0;
+    ctx.save();
+    ctx.translate(9,-38+bob);
+    ctx.rotate(swing>0 ? (1-swing)*1.9-0.5 : (raise>0 ? -0.6*raise : 0));
+    ctx.save();
+    if(atk>0){ ctx.shadowColor='#fff2c8'; ctx.shadowBlur=8*swing; }
+    if(isBow){
+      // a simple recurve bow: a wooden riser with two curved limbs and a taut string
+      ctx.strokeStyle='#5a3a20'; ctx.lineWidth=2.6; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(0,11);
+      ctx.quadraticCurveTo(10,0, 4,-13);
+      ctx.quadraticCurveTo(10,-24, 0,-35);
+      ctx.stroke();
+      ctx.strokeStyle='#d8cdb8'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(0,11); ctx.lineTo(0,-35); ctx.stroke();
+      ctx.fillStyle='#3a2818'; ctx.fillRect(-1.8,-15,3.6,7);
+    } else if(twoHand){
+      // greatsword: longer, wider blade with a full crossguard and a two-hand grip
+      const bladeGrad = ctx.createLinearGradient(-3,-34,3,6);
+      bladeGrad.addColorStop(0,'#f4f6fa'); bladeGrad.addColorStop(0.5,'#c3cad6'); bladeGrad.addColorStop(1,'#7a8290');
+      ctx.strokeStyle='#2a2620'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,6); ctx.lineTo(3.4,-30); ctx.lineTo(0,-35); ctx.lineTo(-3.4,-30); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(0,3); ctx.lineTo(0,-30); ctx.stroke();
+      // crossguard
+      ctx.fillStyle='#8a6a2a'; ctx.fillRect(-7,4,14,3);
+      // grip + second (off) hand lower on the hilt
+      ctx.fillStyle='#3a3428'; ctx.fillRect(-2.2,7,4.4,9);
+      ctx.fillStyle=hasShield?'#c9d2e0':'#5b6575';
+      ctx.beginPath(); ctx.arc(0,16,3.6,0,7); ctx.fill();
+      ctx.strokeStyle='#2e3542'; ctx.lineWidth=1; ctx.stroke();
+    } else {
+      const bladeGrad = ctx.createLinearGradient(-2,-26,2,4);
+      bladeGrad.addColorStop(0,'#f2f4f8'); bladeGrad.addColorStop(1,'#8b93a0');
+      ctx.strokeStyle='#3a3428'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(2,-22); ctx.lineTo(0,-26); ctx.lineTo(-2,-22); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.moveTo(0,2); ctx.lineTo(0,-21); ctx.stroke();
+      ctx.fillStyle='#a8863a'; ctx.fillRect(-3,3,6,3);
+    }
+    ctx.restore();
+    ctx.restore();
+
+    // head / helmet
+    const headGrad = ctx.createRadialGradient(-2,-50+bob,1,0,-48+bob,9);
+    headGrad.addColorStop(0,'#dde3ec'); headGrad.addColorStop(0.6,'#8f99aa'); headGrad.addColorStop(1,'#565f6e');
+    ctx.fillStyle=headGrad;
+    ctx.beginPath(); ctx.arc(0,-48+bob,7,0,7); ctx.fill();
+    ctx.strokeStyle='#333a45'; ctx.lineWidth=1.3; ctx.stroke();
+    // visor slit
+    ctx.fillStyle='#0e0a12';
+    ctx.fillRect(-4,-49+bob,8,2);
+    ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.fillRect(-4,-49+bob,8,0.6);
+    // chin strap
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.arc(0,-47+bob,6,0.35,2.8); ctx.stroke();
+    // plume
+    const plumeGrad = ctx.createLinearGradient(-1,-63+bob,4,-52+bob);
+    plumeGrad.addColorStop(0,'#f0a25a'); plumeGrad.addColorStop(1,'#c8501f');
+    ctx.fillStyle=plumeGrad;
+    ctx.beginPath();
+    ctx.moveTo(-1,-54+bob);
+    ctx.quadraticCurveTo(4+flutter*0.3,-62+bob, 3,-63+bob);
+    ctx.quadraticCurveTo(2,-58+bob,1,-52+bob);
+    ctx.closePath(); ctx.fill();
+
+    ctx.restore();
+  }
+
+  // The Ranger gets its own rig: weathered leather and a hooded cloak in dark
+  // woodland tones instead of the Warrior's polished plate -- an Aragorn-style
+  // wanderer rather than a knight. Same animation/weapon logic as drawWarrior,
+  // just a different look.
+  function drawRanger(p){
+    const iso = toIso(p.x,p.y);
+    const s = p.r/16, face = p.faceSign||1, t = p.animT||0;
+    const moving = p.moving, atk = p.atkAnimT||0, cast = p.castAnimT||0;
+    let alpha = 1;
+    if(p.dodging) alpha=0.5; else if(p.hitFlash>0) alpha = 0.55+Math.sin(p.hitFlash*40)*0.2;
+
+    const eq = (p.equipment) || {};
+    const mh = eq.mainhand, offh = eq.offhand;
+    const twoHand = !!(mh && mh.twoHanded);
+    const isBow = !!(mh && mh.slotType==='bow');
+    const hasShield = !!(offh && offh.slotType==='shield');
+    const offhandSword = !!(offh && offh.slotType==='weapon1h');
+
+    drawShadow(iso.x, iso.y, 15*s, 7*s);
+
+    if(p.guardianT>0){
+      ctx.save();
+      ctx.globalAlpha = 0.55 + Math.sin((p.animT||0)*10)*0.2;
+      ctx.strokeStyle = '#f0d078';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#f0d078'; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.ellipse(iso.x, iso.y-20, 20*s, 28*s, 0, 0, 7); ctx.stroke();
+      ctx.restore();
+    }
+
+    if(p.assaultT>0){
+      const durMax = p.assaultDurMax||1;
+      const frac = clamp(1 - p.assaultT/durMax, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = (0.4 + frac*0.4) + Math.sin((p.animT||0)*14)*0.15;
+      ctx.strokeStyle = '#e2382f';
+      ctx.lineWidth = 3 + frac*2;
+      ctx.shadowColor = '#e2382f'; ctx.shadowBlur = 8 + frac*10;
+      ctx.beginPath(); ctx.ellipse(iso.x, iso.y-20, 20*s, 28*s, 0, 0, 7); ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+
+    const walk = moving ? Math.sin(t*10) : 0;
+    const bob = moving ? Math.abs(Math.sin(t*10))*2 : Math.sin(t*2)*1.2;
+    const legSwing = walk*7;
+    const flutter = Math.sin(t*6)*3 + walk*2;
+
+    // travel cloak (two-layer, weathered dark green-brown instead of a bright cape)
+    const cloakBackGrad = ctx.createLinearGradient(-4,-40+bob,-22,-2);
+    cloakBackGrad.addColorStop(0,'#1c2016'); cloakBackGrad.addColorStop(1,'#0c0d08');
+    ctx.fillStyle = cloakBackGrad;
+    ctx.beginPath();
+    ctx.moveTo(-6,-39+bob*0.3);
+    ctx.quadraticCurveTo(-20+walk*2+flutter*1.3, -17+bob*0.3, -11-flutter*0.6, 2);
+    ctx.lineTo(-2,-2);
+    ctx.lineTo(-3,-37+bob*0.3);
+    ctx.closePath(); ctx.fill();
+
+    const cloakGrad = ctx.createLinearGradient(-4,-42+bob,-20,-6);
+    cloakGrad.addColorStop(0, p.invuln>0 ? '#c9b06a' : '#4a4a34');
+    cloakGrad.addColorStop(1, '#20200f');
+    ctx.fillStyle = cloakGrad;
+    ctx.beginPath();
+    ctx.moveTo(-7,-40+bob*0.3);
+    ctx.quadraticCurveTo(-15+walk*2+flutter, -20+bob*0.3, -8-flutter*0.4, -1);
+    ctx.lineTo(-1,-4);
+    ctx.lineTo(-4,-38+bob*0.3);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=0.8; ctx.stroke();
+
+    // legs (worn leather trousers tucked into boots)
+    const legGradL = ctx.createLinearGradient(-7,-18,-1,0);
+    legGradL.addColorStop(0,'#5a4530'); legGradL.addColorStop(1,'#2c2015');
+    ctx.fillStyle=legGradL;
+    roundRect(-7,-18-legSwing*0.15, 6, 18+legSwing*0.15, 3); ctx.fill();
+    ctx.strokeStyle='#1a130c'; ctx.lineWidth=1; ctx.stroke();
+    const legGradR = ctx.createLinearGradient(1,-18,7,0);
+    legGradR.addColorStop(0,'#463620'); legGradR.addColorStop(1,'#221a10');
+    ctx.fillStyle=legGradR;
+    roundRect(1,-18+legSwing*0.15, 6, 18-legSwing*0.15, 3); ctx.fill();
+    ctx.strokeStyle='#1a130c'; ctx.lineWidth=1; ctx.stroke();
+    // dark boot cuffs
+    ctx.fillStyle='#1c140c';
+    ctx.fillRect(-7,-4-legSwing*0.15,6,4); ctx.fillRect(1,-4+legSwing*0.15,6,4);
+
+    // torso (a laced leather jerkin over a plain shirt, not polished plate)
+    const torsoGrad = ctx.createLinearGradient(-9,-42+bob,9,-18+bob);
+    torsoGrad.addColorStop(0,'#8a6a44'); torsoGrad.addColorStop(0.55,'#5f4a2e'); torsoGrad.addColorStop(1,'#3a2c1a');
+    ctx.fillStyle = torsoGrad;
+    roundRect(-9,-42+bob, 18, 24, 5); ctx.fill();
+    ctx.strokeStyle='#241a0f'; ctx.lineWidth=1.4; ctx.stroke();
+    ctx.strokeStyle='rgba(255,240,210,0.18)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-7,-40+bob); ctx.lineTo(-7,-20+bob); ctx.stroke();
+    // criss-crossed lacing up the chest instead of a chest seam + belt buckle
+    ctx.strokeStyle='#2a1e10'; ctx.lineWidth=1;
+    for(const ly of [-37,-32,-27,-22]){
+      ctx.beginPath(); ctx.moveTo(-3,ly+bob); ctx.lineTo(3,ly+3+bob); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(3,ly+bob); ctx.lineTo(-3,ly+3+bob); ctx.stroke();
+    }
+    ctx.fillStyle='#3a2c1a'; ctx.fillRect(-9,-21+bob,18,3);
+    // a leather baldric (quiver strap) across the chest, in place of pauldrons
+    ctx.strokeStyle='#4a3420'; ctx.lineWidth=3.2;
+    ctx.beginPath(); ctx.moveTo(-8,-42+bob); ctx.lineTo(7,-19+bob); ctx.stroke();
+    ctx.strokeStyle='#2a1e10'; ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.moveTo(-8,-42+bob); ctx.lineTo(7,-19+bob); ctx.stroke();
+
+    // off-hand: shield if one is equipped, otherwise a leather-gloved fist
+    if(hasShield){
+      ctx.save();
+      const raised = p.blocking;
+      ctx.translate(raised?-14:-12, (raised?-38:-34)+bob);
+      if(raised){ ctx.shadowColor='#c9b878'; ctx.shadowBlur=8; }
+      const shieldGrad = ctx.createRadialGradient(-1,-3,1,0,0,10);
+      shieldGrad.addColorStop(0,'#6a5030'); shieldGrad.addColorStop(0.6,'#4a3620'); shieldGrad.addColorStop(1,'#241a0e');
+      ctx.fillStyle=shieldGrad;
+      ctx.beginPath(); ctx.ellipse(0,4,raised?8.4:7,raised?11.5:10,0,0,7); ctx.fill();
+      ctx.strokeStyle='#160f08'; ctx.lineWidth=1.3; ctx.stroke();
+      ctx.strokeStyle='rgba(255,240,210,0.25)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.ellipse(-1.5,1,4.5,7,0,3.4,5.6); ctx.stroke();
+      ctx.fillStyle='#8a7040';
+      ctx.beginPath(); ctx.arc(0,4,2.4,0,7); ctx.fill();
+      ctx.strokeStyle='#4a3420'; ctx.lineWidth=0.8; ctx.stroke();
+      ctx.restore();
+    } else if(offhandSword){
+      ctx.save(); ctx.translate(-11,-34+bob); ctx.scale(-1,1);
+      const bladeGrad = ctx.createLinearGradient(-2,-22,2,4);
+      bladeGrad.addColorStop(0,'#e4e6ea'); bladeGrad.addColorStop(1,'#7b8390');
+      ctx.strokeStyle='#241a0f'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(2,-20); ctx.lineTo(0,-24); ctx.lineTo(-2,-20); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.moveTo(0,2); ctx.lineTo(0,-19); ctx.stroke();
+      ctx.fillStyle='#4a3420'; ctx.fillRect(-3,3,6,3);
+      ctx.restore();
+    } else if(isBow){
+      ctx.save(); ctx.translate(-2,-24+bob);
+      const fistGrad = ctx.createRadialGradient(-1,-1,0.5,0,0,4.2);
+      fistGrad.addColorStop(0,'#8a6a44'); fistGrad.addColorStop(1,'#3a2c1a');
+      ctx.fillStyle=fistGrad;
+      ctx.beginPath(); ctx.arc(0,0,3.8,0,7); ctx.fill();
+      ctx.strokeStyle='#241a0f'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.save(); ctx.translate(-11,-32+bob);
+      const fistGrad = ctx.createRadialGradient(-1,-1,0.5,0,0,5);
+      fistGrad.addColorStop(0,'#8a6a44'); fistGrad.addColorStop(1,'#3a2c1a');
+      ctx.fillStyle=fistGrad;
+      ctx.beginPath(); ctx.arc(0,3,4.4,0,7); ctx.fill();
+      ctx.strokeStyle='#241a0f'; ctx.lineWidth=1; ctx.stroke();
+      ctx.restore();
+    }
+
+    // weapon arm
+    const swing = atk>0 ? (atk/0.22) : 0;
+    const raise = cast>0 ? (cast/0.25) : 0;
+    ctx.save();
+    ctx.translate(9,-38+bob);
+    ctx.rotate(swing>0 ? (1-swing)*1.9-0.5 : (raise>0 ? -0.6*raise : 0));
+    ctx.save();
+    if(atk>0){ ctx.shadowColor='#e8d8a8'; ctx.shadowBlur=8*swing; }
+    if(isBow){
+      // the signature weapon: a worn wooden recurve bow with a taut string
+      ctx.strokeStyle='#3a2814'; ctx.lineWidth=2.6; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(0,11);
+      ctx.quadraticCurveTo(10,0, 4,-13);
+      ctx.quadraticCurveTo(10,-24, 0,-35);
+      ctx.stroke();
+      ctx.strokeStyle='#cfc4a8'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(0,11); ctx.lineTo(0,-35); ctx.stroke();
+      ctx.fillStyle='#241a0f'; ctx.fillRect(-1.8,-15,3.6,7);
+    } else if(twoHand){
+      const bladeGrad = ctx.createLinearGradient(-3,-34,3,6);
+      bladeGrad.addColorStop(0,'#e8eaee'); bladeGrad.addColorStop(0.5,'#b3bac6'); bladeGrad.addColorStop(1,'#6a7280');
+      ctx.strokeStyle='#241a0f'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,6); ctx.lineTo(3.4,-30); ctx.lineTo(0,-35); ctx.lineTo(-3.4,-30); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(0,3); ctx.lineTo(0,-30); ctx.stroke();
+      ctx.fillStyle='#4a3420'; ctx.fillRect(-7,4,14,3);
+      ctx.fillStyle='#2a1e10'; ctx.fillRect(-2.2,7,4.4,9);
+      ctx.fillStyle=hasShield?'#6a5030':'#3a2c1a';
+      ctx.beginPath(); ctx.arc(0,16,3.6,0,7); ctx.fill();
+      ctx.strokeStyle='#160f08'; ctx.lineWidth=1; ctx.stroke();
+    } else {
+      const bladeGrad = ctx.createLinearGradient(-2,-26,2,4);
+      bladeGrad.addColorStop(0,'#e4e6ea'); bladeGrad.addColorStop(1,'#7b8390');
+      ctx.strokeStyle='#241a0f'; ctx.fillStyle=bladeGrad;
+      ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(2,-22); ctx.lineTo(0,-26); ctx.lineTo(-2,-22); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.moveTo(0,2); ctx.lineTo(0,-21); ctx.stroke();
+      ctx.fillStyle='#4a3420'; ctx.fillRect(-3,3,6,3);
+    }
+    ctx.restore();
+    ctx.restore();
+
+    // head: a pointed leather hood instead of a metal helm, with a shadowed
+    // weathered face and no bright plume
+    const headY = -48+bob;
+    ctx.fillStyle = '#c9976a'; // sun-weathered skin, mostly hidden by the hood
+    ctx.beginPath(); ctx.arc(0, headY+1, 6, 0.15, Math.PI-0.15); ctx.fill();
+    // hood -- a deep cowl framing the face, drawn over the top/sides of the head
+    const hoodGrad = ctx.createLinearGradient(0,headY-9,0,headY+5);
+    hoodGrad.addColorStop(0,'#3a4a30'); hoodGrad.addColorStop(1,'#1a2414');
+    ctx.fillStyle = hoodGrad;
+    ctx.beginPath();
+    ctx.moveTo(-7,headY+3);
+    ctx.quadraticCurveTo(-8,headY-9, 0,headY-10);
+    ctx.quadraticCurveTo(8,headY-9, 7,headY+3);
+    ctx.quadraticCurveTo(4,headY-1, 0,headY-1);
+    ctx.quadraticCurveTo(-4,headY-1, -7,headY+3);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#0e1409'; ctx.lineWidth=1; ctx.stroke();
+    // shadowed brow line under the hood's edge
+    ctx.fillStyle='rgba(0,0,0,0.35)';
+    ctx.fillRect(-5,headY-1,10,1.6);
+    // a hint of stubble/jaw shadow
+    ctx.fillStyle='rgba(60,40,25,0.4)';
+    ctx.beginPath(); ctx.ellipse(0,headY+4,4,2.2,0,0,7); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawDemon(e){
+    const iso = toIso(e.x,e.y);
+    const kind = e.type, face = e.faceSign||1, t = e.animT||0;
+    const moving = e.moving, atk = e.atkAnimT||0, flash = e.hitT>0;
+
+    let s, lightColor, bodyColor, darkColor, hornColor, eyeColor, hoverAmp, legLen, torsoW, torsoH, headR;
+    if(kind==='grunt'){ s=e.r/16; lightColor='#c1445a'; bodyColor='#9c2f3e'; darkColor='#4e1620'; hornColor='#221016'; eyeColor='#ffd23a'; hoverAmp=0; legLen=14; torsoW=15; torsoH=18; headR=7; }
+    else if(kind==='archer'){ s=e.r/16*1.08; lightColor='#8064c4'; bodyColor='#5a3f8a'; darkColor='#33235a'; hornColor='#1c1228'; eyeColor='#9ad6ff'; hoverAmp=4; legLen=8; torsoW=11; torsoH=15; headR=6; }
+    else if(kind==='boss'){ s=e.r/16*1.15; lightColor='#ff6a4a'; bodyColor='#8a1f14'; darkColor='#2a0a06'; hornColor='#150402'; eyeColor='#ffdd44'; hoverAmp=0; legLen=19; torsoW=27; torsoH=32; headR=10.5; }
+    else if(kind==='wolf'){ s=e.r/16*0.85; lightColor='#b8b4a8'; bodyColor='#6e6a60'; darkColor='#302e28'; hornColor='#1c1a16'; eyeColor='#ffd23a'; hoverAmp=0; legLen=15; torsoW=13; torsoH=15; headR=6.5; }
+    else if(kind==='bear'){ s=e.r/16*1.0; lightColor='#a07a48'; bodyColor='#5a3f24'; darkColor='#2a1c10'; hornColor='#160e08'; eyeColor='#ff6a3a'; hoverAmp=0; legLen=18; torsoW=25; torsoH=29; headR=10; }
+    else { s=e.r/16*0.9; lightColor='#9c3f68'; bodyColor='#6b2545'; darkColor='#3a0f24'; hornColor='#170812'; eyeColor='#ff6a3a'; hoverAmp=0; legLen=17; torsoW=23; torsoH=27; headR=9; }
+
+    drawShadow(iso.x, iso.y, (torsoW+6)*s*0.9, (torsoW*0.38)*s);
+
+    if(kind==='boss'){
+      // a menacing pulsing aura to make the demon boss unmistakable at a glance
+      ctx.save();
+      const auraR = (torsoW+20)*s*(1+Math.sin(t*3)*0.06);
+      const grd = ctx.createRadialGradient(iso.x, iso.y, auraR*0.15, iso.x, iso.y, auraR);
+      grd.addColorStop(0, 'rgba(255,70,40,0.35)');
+      grd.addColorStop(1, 'rgba(255,70,40,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(iso.x, iso.y, auraR, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+
+    const cyc = kind==='brute'?6:11;
+    const walk = moving ? Math.sin(t*cyc) : 0;
+    const bob = kind==='archer' ? (Math.sin(t*4)*hoverAmp - hoverAmp) : (moving ? Math.abs(Math.sin(t*cyc))*2 : Math.sin(t*2.2)*1);
+    const legSwing = walk*6;
+    const baseY = -legLen + bob;
+
+    if(kind!=='archer'){
+      ctx.fillStyle=darkColor;
+      roundRect(-torsoW*0.32-3, baseY-legLen-legSwing*0.1, 6, legLen+legSwing*0.1, 2); ctx.fill();
+      roundRect(torsoW*0.32-3, baseY-legLen+legSwing*0.1, 6, legLen-legSwing*0.1, 2); ctx.fill();
+    } else {
+      const flap = Math.sin(t*13)*4;
+      const wingGradL = ctx.createLinearGradient(-torsoW*1.7, baseY-torsoH*0.9, -torsoW*0.4, baseY-torsoH*0.4);
+      wingGradL.addColorStop(0,'rgba(120,90,180,0.3)'); wingGradL.addColorStop(1, darkColor);
+      ctx.fillStyle=wingGradL;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW*0.4, baseY-torsoH*0.6);
+      ctx.quadraticCurveTo(-torsoW*1.7, baseY-torsoH*0.9+flap, -torsoW*1.2, baseY-torsoH*0.1);
+      ctx.quadraticCurveTo(-torsoW*0.7,baseY-torsoH*0.3,-torsoW*0.4,baseY-torsoH*0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=0.8; ctx.stroke();
+
+      const wingGradR = ctx.createLinearGradient(torsoW*1.7, baseY-torsoH*0.9, torsoW*0.4, baseY-torsoH*0.4);
+      wingGradR.addColorStop(0,'rgba(120,90,180,0.3)'); wingGradR.addColorStop(1, darkColor);
+      ctx.fillStyle=wingGradR;
+      ctx.beginPath();
+      ctx.moveTo(torsoW*0.4, baseY-torsoH*0.6);
+      ctx.quadraticCurveTo(torsoW*1.7, baseY-torsoH*0.9-flap, torsoW*1.2, baseY-torsoH*0.1);
+      ctx.quadraticCurveTo(torsoW*0.7,baseY-torsoH*0.3,torsoW*0.4,baseY-torsoH*0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=0.8; ctx.stroke();
+    }
+
+    let torsoFill;
+    if(flash){ torsoFill='#ffffff'; }
+    else {
+      const tg = ctx.createLinearGradient(-torsoW/2, baseY-torsoH, torsoW/2, baseY);
+      tg.addColorStop(0, lightColor); tg.addColorStop(1, darkColor);
+      torsoFill = tg;
+    }
+    ctx.fillStyle = torsoFill;
+    roundRect(-torsoW/2, baseY-torsoH, torsoW, torsoH, torsoW*0.32); ctx.fill();
+    ctx.strokeStyle=darkColor; ctx.lineWidth=1.3; ctx.stroke();
+
+    const armY = baseY-torsoH*0.72;
+    const reach = atk>0 ? 7 : 0;
+    ctx.fillStyle = flash ? '#fff' : darkColor;
+    ctx.beginPath(); ctx.moveTo(-torsoW/2, armY); ctx.lineTo(-torsoW/2-7-reach, armY+8); ctx.lineTo(-torsoW/2-4-reach, armY+11); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(torsoW/2, armY); ctx.lineTo(torsoW/2+7+reach, armY+8); ctx.lineTo(torsoW/2+4+reach, armY+11); ctx.closePath(); ctx.fill();
+
+    if(kind==='archer'){
+      ctx.strokeStyle='#20142f'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(torsoW/2+6+reach, armY+9, 5, -1,1); ctx.stroke();
+    }
+
+    const headY = baseY-torsoH-headR*0.55;
+    let headFill;
+    if(flash){ headFill='#ffffff'; }
+    else {
+      const hg = ctx.createRadialGradient(-headR*0.3, headY-headR*0.3, 1, 0, headY, headR*1.3);
+      hg.addColorStop(0, lightColor); hg.addColorStop(1, darkColor);
+      headFill = hg;
+    }
+    ctx.fillStyle = headFill;
+    ctx.beginPath(); ctx.arc(0, headY, headR, 0,7); ctx.fill();
+    ctx.strokeStyle=darkColor; ctx.lineWidth=1.2; ctx.stroke();
+
+    ctx.fillStyle=hornColor;
+    ctx.beginPath();
+    ctx.moveTo(-headR*0.6,headY-headR*0.6);
+    ctx.quadraticCurveTo(-headR*1.6,headY-headR*1.35, -headR*1.25,headY-headR*1.95);
+    ctx.quadraticCurveTo(-headR*0.65,headY-headR*1.25, -headR*0.15,headY-headR*0.9);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(headR*0.6,headY-headR*0.6);
+    ctx.quadraticCurveTo(headR*1.6,headY-headR*1.35, headR*1.25,headY-headR*1.95);
+    ctx.quadraticCurveTo(headR*0.65,headY-headR*1.25, headR*0.15,headY-headR*0.9);
+    ctx.closePath(); ctx.fill();
+
+    ctx.save();
+    ctx.shadowColor=eyeColor; ctx.shadowBlur=6;
+    ctx.fillStyle=eyeColor;
+    ctx.beginPath(); ctx.arc(-headR*0.35, headY, 1.8,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(headR*0.35, headY, 1.8,0,7); ctx.fill();
+    ctx.restore();
+
+    // snarling mouth with fangs
+    ctx.fillStyle=darkColor;
+    ctx.beginPath(); ctx.ellipse(0, headY+headR*0.5, headR*0.4, headR*0.22, 0, 0, 7); ctx.fill();
+    ctx.fillStyle='#f2ecd8';
+    ctx.beginPath(); ctx.moveTo(-headR*0.22,headY+headR*0.4); ctx.lineTo(-headR*0.12,headY+headR*0.4); ctx.lineTo(-headR*0.17,headY+headR*0.66); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(headR*0.22,headY+headR*0.4); ctx.lineTo(headR*0.12,headY+headR*0.4); ctx.lineTo(headR*0.17,headY+headR*0.66); ctx.closePath(); ctx.fill();
+
+    // clawed fingertips at the end of each arm
+    ctx.fillStyle=hornColor;
+    const clawLX=-torsoW/2-4-reach, clawLY=armY+11, clawRX=torsoW/2+4+reach, clawRY=armY+11;
+    for(const dxp of [-1.6,0,1.6]){
+      ctx.beginPath(); ctx.moveTo(clawLX+dxp,clawLY); ctx.lineTo(clawLX+dxp-0.8,clawLY+3.4); ctx.lineTo(clawLX+dxp+0.8,clawLY+1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(clawRX+dxp,clawRY); ctx.lineTo(clawRX+dxp-0.8,clawRY+1); ctx.lineTo(clawRX+dxp+0.8,clawRY+3.4); ctx.closePath(); ctx.fill();
+    }
+
+    // per-type flourishes
+    if(kind==='brute' || kind==='bear'){
+      // molten cracks across the chest
+      ctx.save();
+      ctx.shadowColor='#ff8a3a'; ctx.shadowBlur=4;
+      ctx.strokeStyle='rgba(255,138,58,0.85)'; ctx.lineWidth=1.1;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW*0.18, baseY-torsoH*0.75); ctx.lineTo(-torsoW*0.04, baseY-torsoH*0.5); ctx.lineTo(-torsoW*0.14, baseY-torsoH*0.22);
+      ctx.moveTo(torsoW*0.1, baseY-torsoH*0.82); ctx.lineTo(torsoW*0.2, baseY-torsoH*0.55);
+      ctx.stroke();
+      ctx.restore();
+      // lower tusks
+      ctx.fillStyle='#f2ecd8';
+      ctx.beginPath(); ctx.moveTo(-headR*0.5,headY+headR*0.55); ctx.lineTo(-headR*0.62,headY+headR*0.95); ctx.lineTo(-headR*0.32,headY+headR*0.62); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(headR*0.5,headY+headR*0.55); ctx.lineTo(headR*0.62,headY+headR*0.95); ctx.lineTo(headR*0.32,headY+headR*0.62); ctx.closePath(); ctx.fill();
+      // shoulder spikes
+      ctx.fillStyle=hornColor;
+      for(const sideSign of [-1,1]){
+        ctx.beginPath();
+        ctx.moveTo(sideSign*torsoW*0.36, baseY-torsoH*0.94);
+        ctx.lineTo(sideSign*torsoW*0.56, baseY-torsoH*1.22);
+        ctx.lineTo(sideSign*torsoW*0.22, baseY-torsoH*0.98);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if(kind==='archer'){
+      // quiver on the back + a faint rune glow on the bow arm
+      ctx.fillStyle=darkColor;
+      roundRect(torsoW*0.1, baseY-torsoH*1.05, torsoW*0.28, torsoH*0.5, 2); ctx.fill();
+      ctx.strokeStyle=lightColor; ctx.lineWidth=0.8; ctx.stroke();
+      ctx.save();
+      ctx.shadowColor=eyeColor; ctx.shadowBlur=5;
+      ctx.strokeStyle=eyeColor; ctx.lineWidth=0.8; ctx.globalAlpha=0.7;
+      ctx.beginPath(); ctx.arc(torsoW/2+6+reach, armY+9, 5, -1,1); ctx.stroke();
+      ctx.restore();
+    } else if(kind==='boss'){
+      // massive crown of horns and glowing chest fissures befitting a floor guardian
+      ctx.save();
+      ctx.shadowColor='#ff5a2a'; ctx.shadowBlur=6;
+      ctx.strokeStyle='rgba(255,120,40,0.9)'; ctx.lineWidth=1.6;
+      ctx.beginPath();
+      ctx.moveTo(-torsoW*0.22, baseY-torsoH*0.82); ctx.lineTo(-torsoW*0.02, baseY-torsoH*0.5); ctx.lineTo(-torsoW*0.18, baseY-torsoH*0.18);
+      ctx.moveTo(torsoW*0.14, baseY-torsoH*0.88); ctx.lineTo(torsoW*0.26, baseY-torsoH*0.55); ctx.lineTo(torsoW*0.1, baseY-torsoH*0.25);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle=hornColor;
+      for(const sideSign of [-1,1]){
+        ctx.beginPath();
+        ctx.moveTo(sideSign*headR*0.55, headY-headR*0.75);
+        ctx.quadraticCurveTo(sideSign*headR*2.1, headY-headR*1.7, sideSign*headR*1.55, headY-headR*2.7);
+        ctx.quadraticCurveTo(sideSign*headR*0.85, headY-headR*1.55, sideSign*headR*0.2, headY-headR*1.05);
+        ctx.closePath(); ctx.fill();
+      }
+    } else if(kind==='wolf'){
+      // lean and feral -- no extra strapping, just the pointed ears from the horn shapes above
+    } else {
+      // grunt: a simple banded chest strap
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(-torsoW/2,baseY-torsoH*0.6); ctx.lineTo(torsoW/2,baseY-torsoH*0.35); ctx.stroke();
+    }
+
+    ctx.restore();
+
+    drawHpBar(iso, legLen+torsoH+headR*2+10, e.r, e.hp, e.maxHp);
+  }
+
+  // Spiders don't fit the humanoid demon rig, so they get their own low,
+  // many-legged silhouette with glowing eyes.
+  function drawSpiderIso(e){
+    const iso = toIso(e.x,e.y);
+    const t = e.animT||0, flash = e.hitT>0, moving = e.moving;
+    const s = e.r/13;
+    drawShadow(iso.x, iso.y, 16*s, 7*s);
+    ctx.save();
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(s, s);
+    const bob = moving ? Math.abs(Math.sin(t*10))*1.5 : Math.sin(t*2)*0.5;
+    const bodyY = -6+bob;
+    ctx.strokeStyle = flash ? '#fff' : '#241a2e';
+    ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    for(let i=0;i<4;i++){
+      const legPhase = moving ? Math.sin(t*10 + i*1.4)*5 : 0;
+      const baseAngle = -0.9 + i*0.6;
+      for(const side of [-1,1]){
+        const ang = side<0 ? Math.PI-baseAngle : baseAngle;
+        const kx = Math.cos(ang)*13, ky = Math.sin(ang)*5+bodyY+3+legPhase*0.2;
+        const ex = Math.cos(ang)*20, ey = Math.sin(ang)*3+bodyY+8+legPhase;
+        ctx.beginPath(); ctx.moveTo(0,bodyY); ctx.lineTo(kx,ky); ctx.lineTo(ex,ey); ctx.stroke();
+      }
+    }
+    let bodyFill;
+    if(flash){ bodyFill='#fff'; }
+    else {
+      const bg = ctx.createRadialGradient(-3,bodyY-4,1,0,bodyY,13);
+      bg.addColorStop(0,'#5a4470'); bg.addColorStop(1,'#241a30');
+      bodyFill = bg;
+    }
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath(); ctx.ellipse(0,bodyY,10,7.5,0,0,7); ctx.fill();
+    ctx.strokeStyle='#140e1c'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath(); ctx.ellipse(11,bodyY+1,5.5,4.2,0,0,7); ctx.fill();
+    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor='#ff3a3a'; ctx.shadowBlur=5;
+    ctx.fillStyle='#ff3a3a';
+    ctx.beginPath(); ctx.arc(14,bodyY-1,1.4,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(14,bodyY+3,1.4,0,7); ctx.fill();
+    ctx.restore();
+    ctx.restore();
+    drawHpBar(iso, 26, e.r, e.hp, e.maxHp);
+  }
+
+  // A lean, four-legged wolf in profile -- flips with facing like everything
+  // else, but reads as an actual animal instead of the bipedal demon rig.
+  function drawWolfIso(e){
+    const iso = toIso(e.x,e.y);
+    const face = e.faceSign||1, t = e.animT||0, moving = e.moving, flash = e.hitT>0;
+    const s = e.r/14;
+    drawShadow(iso.x, iso.y, 22*s, 8*s);
+    ctx.save();
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+    const walk = moving ? Math.sin(t*12) : 0;
+    const bob = moving ? Math.abs(Math.sin(t*12))*1.5 : Math.sin(t*2)*0.5;
+    const bodyY = -14+bob;
+    const furLight = flash?'#fff':'#b8b4a8', furDark = flash?'#fff':'#6e6a60', furShadow='#302e28';
+    const legA = walk*7, legB = -walk*7;
+    ctx.strokeStyle = furShadow; ctx.lineWidth = 3.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-11,bodyY+2); ctx.lineTo(-11+legA*0.3, bodyY+12+Math.abs(legA)*0.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-5,bodyY+3); ctx.lineTo(-5+legB*0.3, bodyY+13+Math.abs(legB)*0.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9,bodyY+2); ctx.lineTo(9+legB*0.3, bodyY+12+Math.abs(legB)*0.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15,bodyY+3); ctx.lineTo(15+legA*0.3, bodyY+13+Math.abs(legA)*0.15); ctx.stroke();
+    // tail
+    ctx.strokeStyle = furDark; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-14,bodyY-4); ctx.quadraticCurveTo(-23,bodyY-9,-21,bodyY-17); ctx.stroke();
+    // body
+    let bodyFill;
+    if(flash){ bodyFill='#fff'; }
+    else {
+      const bg = ctx.createLinearGradient(-14,bodyY-8,14,bodyY+4);
+      bg.addColorStop(0, furLight); bg.addColorStop(1, furDark);
+      bodyFill = bg;
+    }
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath(); ctx.ellipse(0, bodyY-3, 15, 7, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = furShadow; ctx.lineWidth = 1.2; ctx.stroke();
+    // head + snout
+    const headX=18, headY=bodyY-8;
+    ctx.fillStyle = flash?'#fff':furLight;
+    ctx.beginPath(); ctx.ellipse(headX, headY, 6.5, 5.5, 0,0,7); ctx.fill();
+    ctx.strokeStyle=furShadow; ctx.lineWidth=1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(headX+5,headY+1); ctx.lineTo(headX+13,headY+2); ctx.lineTo(headX+5,headY+4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // ears
+    ctx.fillStyle = furShadow;
+    ctx.beginPath(); ctx.moveTo(headX-3,headY-4); ctx.lineTo(headX-1,headY-11); ctx.lineTo(headX+2,headY-4); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(headX+2,headY-4); ctx.lineTo(headX+5,headY-10); ctx.lineTo(headX+6,headY-3); ctx.closePath(); ctx.fill();
+    // glowing eye
+    ctx.save(); ctx.shadowColor='#ffd23a'; ctx.shadowBlur=5; ctx.fillStyle='#ffd23a';
+    ctx.beginPath(); ctx.arc(headX+3,headY-1,1.3,0,7); ctx.fill(); ctx.restore();
+    ctx.restore();
+    drawHpBar(iso, 30*s, e.r, e.hp, e.maxHp);
+  }
+
+  // A bulky brown bear, also on all fours -- same profile-and-flip approach
+  // as the wolf, scaled up with rounder proportions and a shoulder hump.
+  function drawBearIso(e){
+    const iso = toIso(e.x,e.y);
+    const face = e.faceSign||1, t = e.animT||0, moving = e.moving, flash = e.hitT>0;
+    const s = e.r/16;
+    drawShadow(iso.x, iso.y, 30*s, 11*s);
+    ctx.save();
+    ctx.translate(iso.x, iso.y);
+    ctx.scale(face*s, s);
+    const walk = moving ? Math.sin(t*7) : 0;
+    const bob = moving ? Math.abs(Math.sin(t*7))*2 : Math.sin(t*2)*0.8;
+    const bodyY = -18+bob;
+    const furLight = flash?'#fff':'#a07a48', furDark = flash?'#fff':'#5a3f24', furShadow='#2a1c10';
+    const legA = walk*6, legB = -walk*6;
+    ctx.strokeStyle = furShadow; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-15,bodyY+4); ctx.lineTo(-15+legA*0.25,bodyY+18+Math.abs(legA)*0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-5,bodyY+5); ctx.lineTo(-5+legB*0.25,bodyY+19+Math.abs(legB)*0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12,bodyY+4); ctx.lineTo(12+legB*0.25,bodyY+18+Math.abs(legB)*0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(21,bodyY+5); ctx.lineTo(21+legA*0.25,bodyY+19+Math.abs(legA)*0.1); ctx.stroke();
+    // body -- big and rounded, with a shoulder hump
+    let bodyFill;
+    if(flash){ bodyFill='#fff'; }
+    else {
+      const bg = ctx.createLinearGradient(-20,bodyY-14,20,bodyY+6);
+      bg.addColorStop(0,furLight); bg.addColorStop(1,furDark);
+      bodyFill = bg;
+    }
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath(); ctx.ellipse(0,bodyY-4,22,11,0,0,7); ctx.fill();
+    ctx.strokeStyle=furShadow; ctx.lineWidth=1.6; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-6,bodyY-14,9,6,0,0,7); ctx.fill(); ctx.stroke();
+    // head + snout
+    const headX=24, headY=bodyY-10;
+    ctx.fillStyle = flash?'#fff':furLight;
+    ctx.beginPath(); ctx.ellipse(headX,headY,9,7.5,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = flash?'#fff':'#c9a074';
+    ctx.beginPath(); ctx.ellipse(headX+8,headY+2,5,3.6,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#241a12'; ctx.beginPath(); ctx.arc(headX+12,headY+2,1.4,0,7); ctx.fill();
+    // rounded ears
+    ctx.fillStyle=furDark;
+    ctx.beginPath(); ctx.arc(headX-5,headY-7,3.4,0,7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(headX+3,headY-8,3.4,0,7); ctx.fill(); ctx.stroke();
+    // eye
+    ctx.save(); ctx.shadowColor='#ff6a3a'; ctx.shadowBlur=5; ctx.fillStyle='#ff6a3a';
+    ctx.beginPath(); ctx.arc(headX+5,headY-1,1.6,0,7); ctx.fill(); ctx.restore();
+    ctx.restore();
+    drawHpBar(iso, 46*s, e.r, e.hp, e.maxHp);
+  }
+
+  function drawEnemyIso(e){
+    if(e.type==='spider') drawSpiderIso(e);
+    else if(e.type==='wolf') drawWolfIso(e);
+    else if(e.type==='bear') drawBearIso(e);
+    else drawDemon(e);
+  }
+
+  // ---------- Render ----------
+  function render(){
+    if(game && game.started && game.scene==='town'){
+      // a dusk sky behind the outdoor town square, visible past the fence line
+      const skyGrad = ctx.createLinearGradient(0,0,0,H);
+      skyGrad.addColorStop(0, '#2a2440'); skyGrad.addColorStop(1, '#4a3a3a');
+      ctx.fillStyle = skyGrad;
+    } else if(game && game.started && game.scene==='forest'){
+      // a dim green forest canopy overhead
+      const skyGrad = ctx.createLinearGradient(0,0,0,H);
+      skyGrad.addColorStop(0, '#132318'); skyGrad.addColorStop(1, '#1c2e1a');
+      ctx.fillStyle = skyGrad;
+    } else if(game && game.started && game.scene==='dungeon'){
+      // a dark, earthy void beyond the mine's torchlight
+      ctx.fillStyle = '#0f0a06';
+    } else {
+      ctx.fillStyle = '#0b0710';
+    }
+    ctx.fillRect(0,0,W,H);
+    if(!game || !game.started) return;
+    const g=game, p=g.player, room=g.room, cam=g.camera;
+    ctx.save();
+    ctx.translate(-cam.x, -cam.y);
+
+    if(g.scene==='town'){
+      drawTownFloor(room, cam);
+      drawTownPerimeter(room);
+    } else if(g.scene==='forest'){
+      drawForestFloor(room, cam);
+      // no walls -- the tree line along the edges is the natural boundary
+    } else {
+      drawFloor(room, cam);
+      drawWalls(room);
+    }
+
+    const drawables = [];
+    for(const o of room.obstacles) drawables.push({depth:(o.x+o.w/2)+(o.y+o.h/2), draw:()=>drawBlock(o, 26, '#5a4c3a','#2a2216','#3a3020')});
+    if(g.scene==='town'){
+      if(g.town){
+        if(g.town.trees) for(const tr of g.town.trees) drawables.push({depth:tr.x+tr.y, draw:()=>drawTreeIso(tr)});
+        if(g.town.decoBuildings) for(const db of g.town.decoBuildings) drawables.push({depth:(db.x+db.w/2)+(db.y+db.h/2), draw:()=>drawBuildingIso(db)});
+        drawables.push({depth:g.town.blacksmith.x+g.town.blacksmith.y, draw:()=>drawBlacksmithIso(g.town.blacksmith, g.clock||0)});
+        drawables.push({depth:g.town.gate.x+g.town.gate.y, draw:()=>drawEdgeLabelIso(g.town.gate, 'FOREST')});
+        if(g.player.checkpointDepth > 1){
+          drawables.push({depth:g.town.minePortal.x+g.town.minePortal.y-1, draw:()=>drawBluePortalIso(g.town.minePortal, g.clock||0)});
+          drawables.push({depth:g.town.minePortal.x+g.town.minePortal.y, draw:()=>drawEdgeLabelIso(g.town.minePortal, 'MINE')});
+        }
+      }
+    } else if(g.scene==='forest'){
+      if(g.forest){
+        if(g.forest.trees) for(const tr of g.forest.trees) drawables.push({depth:tr.x+tr.y, draw:()=>drawTreeIso(tr)});
+        drawables.push({depth:g.forest.townGate.x+g.forest.townGate.y, draw:()=>drawEdgeLabelIso(g.forest.townGate, 'TOWN')});
+        drawables.push({depth:g.forest.mineGate.x+g.forest.mineGate.y, draw:()=>drawEdgeLabelIso(g.forest.mineGate, 'MINE')});
+      }
+      for(const l of g.loot) drawables.push({depth:l.x+l.y-1, draw:()=>drawLootIso(l, g.clock||0)});
+      for(const e of g.enemies) drawables.push({depth:e.x+e.y, draw:()=>drawEnemyIso(e)});
+      if(g.followers) for(const f of g.followers) drawables.push({depth:f.x+f.y, draw:()=>drawFollowerIso(f)});
+      if(g.shieldThrow) drawables.push({depth:g.shieldThrow.x+g.shieldThrow.y, draw:()=>drawShieldThrowIso(g.shieldThrow)});
+    } else {
+      if(g.portal) drawables.push({depth:g.portal.x+g.portal.y-1, draw:()=>drawPortalIso(g.portal, g.clock||0)});
+      if(g.chest) drawables.push({depth:g.chest.x+g.chest.y, draw:()=>drawChestIso(g.chest)});
+      for(const l of g.loot) drawables.push({depth:l.x+l.y-1, draw:()=>drawLootIso(l, g.clock||0)});
+      for(const e of g.enemies) drawables.push({depth:e.x+e.y, draw:()=>drawEnemyIso(e)});
+      if(g.followers) for(const f of g.followers) drawables.push({depth:f.x+f.y, draw:()=>drawFollowerIso(f)});
+      if(g.shieldThrow) drawables.push({depth:g.shieldThrow.x+g.shieldThrow.y, draw:()=>drawShieldThrowIso(g.shieldThrow)});
+    }
+    drawables.push({depth:p.x+p.y, draw:()=>(p.cls==='ranger' ? drawRanger(p) : drawWarrior(p))});
+    drawables.sort((a,b)=>a.depth-b.depth);
+    for(const d of drawables) d.draw();
+
+    drawProjectilesIso(g.projectiles);
+    drawParticlesIso(g.particles);
+
+    ctx.restore();
+
+    if(g.levelUpFlash>0){
+      ctx.fillStyle = 'rgba(240,208,120,'+ (g.levelUpFlash*0.35) +')';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    const msgEl = document.getElementById('msg');
+    if(g.msgT>0){ msgEl.style.opacity = clamp(g.msgT,0,1); msgEl.textContent = g.msgText; }
+    else { msgEl.style.opacity = 0; }
+  }
+
+  // Offer to continue a saved character, so progress survives exiting the app/tab.
+  // With 2+ saved characters, Continue opens a character-select submenu instead
+  // of always resuming the same one.
+  function refreshStartScreenButtons(){
+    const list = loadAllSaves();
+    const continueBtn = document.getElementById('continueBtn');
+    const sub = document.getElementById('continueSub');
+    if(list.length===0){
+      continueBtn.style.display = 'none';
+      sub.style.display = 'none';
+    } else {
+      continueBtn.style.display = 'block';
+      sub.style.display = 'block';
+      if(list.length===1){
+        const s = list[0];
+        sub.innerHTML = 'Level '+(s.level||1)+' '+characterLabel(s)+' &middot; '+(s.gold||0)+'g';
+      } else {
+        sub.innerHTML = list.length+' characters saved';
+      }
+    }
+  }
+  // Renders the character-select submenu. mode 'continue' just picks a character
+  // to resume; mode 'slotsFull' is shown instead of starting a new character
+  // once all MAX_CHARACTER_SLOTS are taken, so one can be deleted to make room.
+  function renderCharSelect(mode){
+    const list = loadAllSaves().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+    document.getElementById('charSelectSub').textContent = mode==='slotsFull'
+      ? ('All '+MAX_CHARACTER_SLOTS+' character slots are full — delete one to create a new character')
+      : 'Choose a character to continue';
+    const wrap = document.getElementById('charList');
+    wrap.innerHTML = '';
+    for(const save of list){
+      const row = document.createElement('button');
+      row.className = 'classCard';
+      row.innerHTML =
+        '<div class="classIcon">'+(save.cls==='ranger' ? '&#127993;' : '&#9876;&#65039;')+'</div>'+
+        '<div style="flex:1;">'+
+          '<div class="className">Lv.'+(save.level||1)+' '+characterLabel(save)+'</div>'+
+          '<div class="classDesc">'+(save.gold||0)+'g &middot; Depth '+(save.checkpointDepth||1)+'</div>'+
+        '</div>'+
+        '<div class="charDelete" data-id="'+save.id+'">&#10005;</div>';
+      row.addEventListener('click', (ev)=>{
+        if(ev.target.closest('.charDelete')) return;
+        document.getElementById('charSelect').style.display='none';
+        document.getElementById('start').style.display='none';
+        startGame(save);
+      });
+      wrap.appendChild(row);
+    }
+    wrap.querySelectorAll('.charDelete').forEach(btn=>{
+      btn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        if(window.confirm('Delete this character? This cannot be undone.')){
+          deleteSave(btn.getAttribute('data-id'));
+          renderCharSelect(mode);
+          refreshStartScreenButtons();
+        }
+      });
+    });
+  }
+  refreshStartScreenButtons();
+  document.getElementById('continueBtn').addEventListener('click', ()=>{
+    const list = loadAllSaves();
+    if(list.length===1){
+      document.getElementById('start').style.display='none';
+      startGame(list[0]);
+    } else if(list.length>1){
+      renderCharSelect('continue');
+      document.getElementById('charSelect').style.display='flex';
+    }
+  });
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    if(loadAllSaves().length >= MAX_CHARACTER_SLOTS){
+      renderCharSelect('slotsFull');
+      document.getElementById('charSelect').style.display='flex';
+      return;
+    }
+    document.getElementById('start').style.display='none';
+    document.getElementById('classSelect').style.display='flex';
+  });
+  document.getElementById('charBack').addEventListener('click', ()=>{
+    document.getElementById('charSelect').style.display='none';
+  });
+  document.getElementById('classWarrior').addEventListener('click', ()=>{
+    document.getElementById('classSelect').style.display='none';
+    startGame(null, 'warrior');
+  });
+  document.getElementById('classRanger').addEventListener('click', ()=>{
+    document.getElementById('classSelect').style.display='none';
+    startGame(null, 'ranger');
+  });
+  // Mystic is a placeholder for now and intentionally does nothing when tapped.
+  document.getElementById('retryBtn').addEventListener('click', returnToTown);
+})();
+</script>
+</body>
+</html>
