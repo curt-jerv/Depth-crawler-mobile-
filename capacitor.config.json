@@ -1,6 +1,6 @@
 {
-  "appId": "com.sol.Grimfall",
-  "appName": "Grimfall",
+  "appId": "com.sol.Runefall",
+  "appName": "Runefall",
   "webDir": "www",
   "bundledWebRuntime": false,
   "android": {
